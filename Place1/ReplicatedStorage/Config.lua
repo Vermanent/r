@@ -1,5 +1,5 @@
 -- @ScriptType: ModuleScript
--- ReplicatedStorage/Config.lua (ModuleScript)
+-- ========== ReplicatedStorage/Config.lua ==========
 -- Central configuration for slot count and item definitions
 local Config = {}
 
@@ -14,6 +14,7 @@ Config.Items = {
 		Title       = "Mysterious Cube",
 		Description = "A plain cube used for testing. Can be picked up and dropped."
 	},
+	-- Example additional item:
 	-- HealthPotion = { Icon = "rbxassetid://12345678", Title = "Health Potion", Description = "Restores 20 HP." }
 }
 
