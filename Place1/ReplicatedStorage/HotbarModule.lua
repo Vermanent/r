@@ -1,4 +1,5 @@
 -- @ScriptType: ModuleScript
+-- @ScriptType: ModuleScript
 -- ========== ReplicatedStorage/HotbarModule.lua ==========
 local Config = require(script.Parent:WaitForChild("Config"))
 
