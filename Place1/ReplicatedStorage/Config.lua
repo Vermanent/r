@@ -1,4 +1,5 @@
 -- @ScriptType: ModuleScript
+-- @ScriptType: ModuleScript
 -- ========== ReplicatedStorage/Config.lua ==========
 -- Central configuration for slot count and item definitions
 local Config = {}
