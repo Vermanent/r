@@ -1,5 +1,5 @@
 -- @ScriptType: LocalScript
--- StarterPlayerScripts/ItemPickup.lua (LocalScript)
+-- ========== StarterPlayerScripts/ItemPickup.lua ==========
 local Players           = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService  = game:GetService("UserInputService")
@@ -28,36 +28,30 @@ local function setupWorldItem(model)
 	end
 end
 CollectionService:GetInstanceAddedSignal("WorldItem"):Connect(setupWorldItem)
-for _,m in ipairs(workspace:GetChildren()) do
-	if m.Name=="Placeholder" then
-		CollectionService:AddTag(m,"WorldItem")
-	end
-end
+for _,m in ipairs(workspace:GetChildren()) do if m.Name=="Placeholder" then CollectionService:AddTag(m,"WorldItem") end end
 
--- Pickup (F) and drop (G)
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-	if gameProcessed then return end
-	if input.KeyCode == Enum.KeyCode.F and input.UserInputState == Enum.UserInputState.Begin then
+-- Pickup (F): only when hovering world item
+UserInputService.InputBegan:Connect(function(input)
+	if input.KeyCode==Enum.KeyCode.F then
 		local target = mouse.Target
 		if target then
 			local model = target:FindFirstAncestorOfClass("Model")
 			if model and CollectionService:HasTag(model,"WorldItem") then
-				if (model.PrimaryPart.Position - char.PrimaryPart.Position).Magnitude <= 10 then
+				if (model.PrimaryPart.Position - char.PrimaryPart.Position).Magnitude<=10 then
 					HotbarModule.addItem(model.Name,1)
 					model:Destroy()
 				end
 			end
 		end
-	elseif input.KeyCode == Enum.KeyCode.G and input.UserInputState == Enum.UserInputState.Begin then
-		local idx = HotbarModule.activeIndex
+	elseif input.KeyCode==Enum.KeyCode.G then
+		local idx=HotbarModule.activeIndex
 		if idx and HotbarModule.inventory[idx] then
-			local root = char.PrimaryPart
-			local template = ReplicatedStorage:FindFirstChild(HotbarModule.inventory[idx].Type)
+			local root=char.PrimaryPart
+			local template=ReplicatedStorage:FindFirstChild(HotbarModule.inventory[idx].Type)
 			if root and template then
-				local clone = template:Clone()
-				clone:SetPrimaryPartCFrame(root.CFrame * CFrame.new(0,0,-3))
-				clone.Parent = workspace
-				CollectionService:AddTag(clone,"WorldItem")
+				local clone=template:Clone()
+				clone:SetPrimaryPartCFrame(root.CFrame*CFrame.new(0,0,-3))
+				clone.Parent=workspace; CollectionService:AddTag(clone,"WorldItem")
 				HotbarModule.removeItem()
 			end
 		end
