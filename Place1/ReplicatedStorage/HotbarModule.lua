@@ -1,12 +1,12 @@
 -- @ScriptType: ModuleScript
--- ReplicatedStorage/HotbarModule.lua (ModuleScript)
+-- ========== ReplicatedStorage/HotbarModule.lua ==========
 local Config = require(script.Parent:WaitForChild("Config"))
 
 local HotbarModule = {}
 
 -- Load from config
-HotbarModule.SLOT_COUNT      = Config.SlotCount
-HotbarModule.ItemDefinitions = Config.Items
+HotbarModule.SLOT_COUNT       = Config.SlotCount
+HotbarModule.ItemDefinitions  = Config.Items
 
 -- State: inventory slots 1..SLOT_COUNT, each entry = { Type, Count }
 HotbarModule.inventory   = {}
