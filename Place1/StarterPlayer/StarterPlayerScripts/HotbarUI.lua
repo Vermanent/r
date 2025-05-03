@@ -1,5 +1,5 @@
 -- @ScriptType: LocalScript
--- StarterPlayerScripts/HotbarUI.lua (LocalScript)
+-- ========== StarterPlayerScripts/HotbarUI.lua ==========
 local Players           = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService  = game:GetService("UserInputService")
@@ -40,7 +40,7 @@ layout.FillDirection       = Enum.FillDirection.Horizontal
 layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 layout.Padding             = UDim.new(0, SPACING)
 
--- Create slots dynamically
+-- Create slots dynamically based on SLOT_COUNT
 local slots = {}
 for i = 1, SLOT_COUNT do
 	local holder = Instance.new("Frame")
@@ -85,7 +85,7 @@ for i = 1, SLOT_COUNT do
 	count.TextXAlignment = Enum.TextXAlignment.Right
 	count.Parent = btn
 
-	-- Tooltip
+	-- Tooltip above slot
 	local tooltip = Instance.new("TextLabel")
 	tooltip.Name = "Tooltip"
 	tooltip.AnchorPoint = Vector2.new(0.5, 0)
@@ -99,6 +99,7 @@ for i = 1, SLOT_COUNT do
 	tooltip.Visible = false
 	tooltip.Parent = holder
 
+	-- Hover to show tooltip
 	btn.MouseEnter:Connect(function()
 		local data = HotbarModule.inventory[i]
 		if data then
@@ -124,15 +125,34 @@ for i = 1, SLOT_COUNT do
 	slots[i] = {btn=btn, icon=icon, count=count, expand=expandTween, contract=contractTween}
 end
 
+HotbarModule.refreshUI = function()
+	for i, s in ipairs(slots) do
+		local data = HotbarModule.inventory[i]
+		if data then
+			local def = HotbarModule.ItemDefinitions[data.Type]
+			s.icon.Image = def.Icon; s.icon.ImageTransparency = 0
+			s.count.Text = data.Count .. "×"
+		else
+			s.icon.ImageTransparency = 1; s.count.Text = ""
+		end
+		if i == HotbarModule.activeIndex then
+			s.btn.BackgroundTransparency = 1 - (SLOT_ALPHA + ACTIVE_ALPHA)
+			s.btn.BackgroundColor3 = ACTIVE_TINT
+			s.contract:Cancel(); s.expand:Play()
+		else
+			s.btn.BackgroundTransparency = 1 - SLOT_ALPHA; s.btn.BackgroundColor3 = SLOT_COLOR
+			s.expand:Cancel(); s.contract:Play()
+		end
+	end
+end
+HotbarModule.refreshUI()
+
 -- Keyboard selection
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-	if gameProcessed then return end
-	if input.UserInputType == Enum.UserInputType.Keyboard and input.UserInputState == Enum.UserInputState.Begin then
+UserInputService.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.Keyboard then
 		local kc = input.KeyCode
 		if kc.Value >= Enum.KeyCode.One.Value and kc.Value <= Enum.KeyCode.Nine.Value then
 			HotbarModule.setActive(kc.Value - Enum.KeyCode.One.Value + 1)
 		end
 	end
 end)
-
-HotbarModule.refreshUI()
