@@ -2,7 +2,7 @@ local Toolbar = plugin:CreateToolbar("GitTools")
 local SelectionService = game:GetService("Selection")
 local HttpService = game:GetService("HttpService")
 
--- Base64 encode (provided by you)
+-- Base64 encode
 function to_base64(data)
 	local b = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
 	return ((data:gsub('.', function(x) 
@@ -17,7 +17,7 @@ function to_base64(data)
 	end)..({ '', '==', '=' })[#data%3+1])
 end
 
--- Base64 decode (provided by you)
+-- Base64 decode
 function from_base64(data)
 	local b = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
 	data = string.gsub(data, '[^'..b..'=]', '')
@@ -32,6 +32,15 @@ function from_base64(data)
 		for i=1,8 do c=c+(x:sub(i,i)=='1' and 2^(8-i) or 0) end
 		return string.char(c)
 	end))
+end
+
+-- Split function
+local function split(str, sep)
+	local result = {}
+	for part in string.gmatch(str, "[^" .. sep .. "]+") do
+		table.insert(result, part)
+	end
+	return result
 end
 
 -- Auto path mapping
@@ -51,10 +60,7 @@ end
 
 -- Tree building for copyable hierarchy
 local function buildTree(instance, indent, isLast, includeNonScripts)
-	-- Skip prefix for top-level services (when indent is "")
 	local prefix = indent == "" and "" or (indent .. (isLast and "└─ " or "├─ "))
-
-	-- Determine if the instance is a service
 	local isService = false
 	for _, serviceName in ipairs({
 		"Workspace", "Players", "Lighting", "MaterialService", "NetworkClient",
@@ -67,24 +73,16 @@ local function buildTree(instance, indent, isLast, includeNonScripts)
 			break
 		end
 	end
-
-	-- Use "Service" for services, otherwise use the actual ClassName
 	local typeDisplay = isService and "Service" or instance.ClassName
 	local tree = prefix .. instance.Name .. " (" .. typeDisplay .. ")\n"
-
 	local children = instance:GetChildren()
 	local validChildren = {}
-
-	-- Filter children based on includeNonScripts toggle
 	for _, child in ipairs(children) do
 		if includeNonScripts or child:IsA("Script") or child:IsA("ModuleScript") then
 			table.insert(validChildren, child)
 		end
 	end
-
-	-- Sort children for consistent output
 	table.sort(validChildren, function(a, b) return a.Name < b.Name end)
-
 	for i, child in ipairs(validChildren) do
 		local isLastChild = i == #validChildren
 		local newIndent = indent .. (isLast and "   " or "│  ")
@@ -134,14 +132,27 @@ saveBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
 saveBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 saveBtn.AutoButtonColor = false
 saveBtn.MouseButton1Click:Connect(function()
+	local repoText = repoBox.Text:gsub("%s+", "") -- Trim whitespace
+	if repoText == "" or not repoText:match("([^/]+)/([^/]+)") then
+		statusBar.Text = "❌ Invalid repo format (use owner/repo)"
+		print("saveBtn - Invalid repo format:", repoText)
+		return
+	end
+	local tokenText = tokenBox.Text:gsub("%s+", "")
+	if tokenText == "" then
+		statusBar.Text = "❌ Token cannot be empty"
+		print("saveBtn - Empty token")
+		return
+	end
 	local settings = {
-		token = tokenBox.Text,
-		repo = repoBox.Text,
+		token = tokenText,
+		repo = repoText,
 		includeNonScripts = includeNonScriptsBox.Text:lower() == "true"
-		-- treeServices saved separately in services panel
 	}
+	print("saveBtn - Saving settings:", settings)
 	plugin:SetSetting("GitToolsSettings", settings)
 	settingsWidget.Enabled = false
+	statusBar.Text = "✅ Settings saved"
 	print("[GitTools] Settings saved successfully!")
 end)
 
@@ -155,26 +166,12 @@ local servicesFrame = Instance.new("Frame", servicesWidget)
 servicesFrame.Size = UDim2.new(1, 0, 1, 0)
 servicesFrame.BackgroundTransparency = 1
 
--- List of services to toggle
 local serviceList = {
-	"Workspace",
-	"Players",
-	"Lighting",
-	"MaterialService",
-	"NetworkClient",
-	"ReplicatedFirst",
-	"ReplicatedStorage",
-	"ServerScriptService",
-	"ServerStorage",
-	"StarterGui",
-	"StarterPack",
-	"StarterPlayer",
-	"Teams",
-	"SoundService",
-	"TextChatService"
+	"Workspace", "Players", "Lighting", "MaterialService", "NetworkClient",
+	"ReplicatedFirst", "ReplicatedStorage", "ServerScriptService", "ServerStorage",
+	"StarterGui", "StarterPack", "StarterPlayer", "Teams", "SoundService", "TextChatService"
 }
 
--- Create toggle buttons for each service
 local serviceToggles = {}
 local function createServiceToggle(serviceName, index)
 	local toggleFrame = Instance.new("Frame", servicesFrame)
@@ -183,11 +180,11 @@ local function createServiceToggle(serviceName, index)
 	toggleFrame.BackgroundTransparency = 1
 
 	local checkBtn = Instance.new("TextButton", toggleFrame)
-	checkBtn.Text = ""  -- Start with empty text
+	checkBtn.Text = ""
 	checkBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 	checkBtn.Position = UDim2.new(0, 0, 0, 0)
 	checkBtn.Size = UDim2.new(0, 20, 0, 20)
-	checkBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)  -- Dark gray
+	checkBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 	checkBtn.BorderSizePixel = 1
 
 	local label = Instance.new("TextLabel", toggleFrame)
@@ -201,27 +198,24 @@ local function createServiceToggle(serviceName, index)
 	checkBtn.MouseButton1Click:Connect(function()
 		local settings = plugin:GetSetting("GitToolsTreeServices") or {}
 		settings[serviceName] = not settings[serviceName]
-		checkBtn.Text = settings[serviceName] and "•" or ""  -- Dot if enabled, empty if disabled
+		checkBtn.Text = settings[serviceName] and "•" or ""
 		plugin:SetSetting("GitToolsTreeServices", settings)
 	end)
 
 	serviceToggles[serviceName] = { button = checkBtn }
 end
 
--- Initialize toggle buttons
 for i, serviceName in ipairs(serviceList) do
 	createServiceToggle(serviceName, i)
 end
 
--- Load saved service toggles
 local savedServiceSettings = plugin:GetSetting("GitToolsTreeServices") or {}
 for serviceName, toggle in pairs(serviceToggles) do
 	if savedServiceSettings[serviceName] then
-		toggle.button.Text = "•"  -- Set dot for enabled services
+		toggle.button.Text = "•"
 	end
 end
 
--- Close button for services panel
 local servicesCloseBtn = Instance.new("TextButton", servicesFrame)
 servicesCloseBtn.Text = "Close"
 servicesCloseBtn.Position = UDim2.new(0, 10, 1, -40)
@@ -234,7 +228,6 @@ servicesCloseBtn.MouseButton1Click:Connect(function()
 	print("[GitTools] Tree services configuration saved!")
 end)
 
--- Connect configure services button
 configureServicesBtn.MouseButton1Click:Connect(function()
 	servicesWidget.Enabled = true
 end)
@@ -255,14 +248,12 @@ local frame = Instance.new("Frame", widget)
 frame.Size = UDim2.new(1, 0, 1, 0)
 frame.BackgroundTransparency = 1
 
--- Status bar
 local statusBar = Instance.new("TextLabel", frame)
 statusBar.Size = UDim2.new(1, 0, 0, 20)
 statusBar.Position = UDim2.new(0, 0, 1, -20)
 statusBar.Text = "Ready"
 statusBar.TextScaled = true
 
--- Buttons
 local pushButton = Instance.new("TextButton", frame)
 pushButton.Size = UDim2.new(1, 0, 0, 30)
 pushButton.Position = UDim2.new(0, 0, 0, 0)
@@ -291,38 +282,7 @@ local repoViewerFrame = Instance.new("Frame", repoViewerWidget)
 repoViewerFrame.Size = UDim2.new(1, 0, 1, 0)
 repoViewerFrame.BackgroundTransparency = 1
 
-local function fetchRepoStructure()
-	local s = plugin:GetSetting("GitToolsSettings") or {}
-	print("Settings:", s)
-	print("Token:", s.token)
-	print("Repo:", s.repo)
-	if not s.token or not s.repo then
-		statusBar.Text = "❌ Configure token/repo in Settings"
-		return
-	end
-	local owner, repo = s.repo:match("([^/]+)/([^/]+)")
-	if not owner or not repo then
-		statusBar.Text = "❌ Invalid repo format"
-		return
-	end
-	local url = string.format("https://api.github.com/repos/%s/%s/git/trees/main?recursive=1", owner, repo)
-	local res = HttpService:RequestAsync({
-		Url = url,
-		Method = "GET",
-		Headers = {
-			Authorization = "token " .. s.token,
-			Accept = "application/vnd.github+json"
-		}
-	})
-	if res.StatusCode == 200 then
-		local body = HttpService:JSONDecode(res.Body)
-		local tree = body.tree
-		buildRepoTreeView(tree)
-	else
-		statusBar.Text = "❌ Failed to fetch repo structure: " .. res.StatusCode
-	end
-end
-
+-- Define dependent functions
 local function buildRepoTreeView(tree)
 	for _, child in ipairs(repoViewerFrame:GetChildren()) do
 		child:Destroy()
@@ -346,6 +306,7 @@ local function buildRepoTreeView(tree)
 			local checkBtn = Instance.new("TextButton", frame)
 			checkBtn.Name = item.path
 			checkBtn.Text = "□"
+			checkBtn.TextColor3 = Color3.fromRGB(255, 255, 255) -- White dots
 			checkBtn.Position = UDim2.new(0, 0, 0, 0)
 			checkBtn.Size = UDim2.new(0, 20, 0, 20)
 			checkBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
@@ -354,6 +315,7 @@ local function buildRepoTreeView(tree)
 			shaValue.Value = item.sha
 			local label = Instance.new("TextLabel", frame)
 			label.Text = item.path
+			label.TextColor3 = Color3.fromRGB(255, 255, 255)
 			label.Position = UDim2.new(0, 25, 0, 0)
 			label.Size = UDim2.new(1, -25, 1, 0)
 			label.BackgroundTransparency = 1
@@ -376,6 +338,7 @@ local function buildRepoTreeView(tree)
 	pullBtn.Position = UDim2.new(0, 10, 1, -40)
 	pullBtn.Size = UDim2.new(0, 100, 0, 30)
 	pullBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 150)
+	pullBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 	pullBtn.MouseButton1Click:Connect(function()
 		pullSelectedRepoItems(selectedItems)
 	end)
@@ -385,6 +348,7 @@ local function buildRepoTreeView(tree)
 	deleteBtn.Position = UDim2.new(0, 120, 1, -40)
 	deleteBtn.Size = UDim2.new(0, 100, 0, 30)
 	deleteBtn.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
+	deleteBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 	deleteBtn.MouseButton1Click:Connect(function()
 		deleteSelectedRepoItems(selectedItems)
 	end)
@@ -392,77 +356,148 @@ end
 
 local function pullSelectedRepoItems(selectedItems)
 	local s = plugin:GetSetting("GitToolsSettings") or {}
-	if not s.token or not s.repo then
+	print("pullSelectedRepoItems - Settings:", s)
+	print("pullSelectedRepoItems - s.token:", s.token, "type:", type(s.token))
+	print("pullSelectedRepoItems - s.repo:", s.repo, "type:", type(s.repo))
+	if not s.token or not s.repo or type(s.repo) ~= "string" or s.repo:match("^%s*$") then
 		statusBar.Text = "❌ Configure token/repo in Settings"
+		print("pullSelectedRepoItems - Invalid settings")
+		settingsWidget.Enabled = true
+		return
+	end
+	local owner, repo = s.repo:match("([^/]+)/([^/]+)")
+	if not owner or not repo then
+		statusBar.Text = "❌ Invalid repo format"
+		print("pullSelectedRepoItems - Invalid repo format:", s.repo)
+		settingsWidget.Enabled = true
 		return
 	end
 	for path in pairs(selectedItems) do
 		local instancePath = path:match("^src/(.*)%.lua$")
 		if instancePath then
-			local parts = instancePath:split("/")
+			local parts = split(instancePath, "/")
 			local current = game
 			for _, part in ipairs(parts) do
 				current = current:FindFirstChild(part)
 				if not current then
 					statusBar.Text = "❌ Instance not found: " .. instancePath
+					print("pullSelectedRepoItems - Instance not found:", instancePath)
 					return
 				end
 			end
 			if current:IsA("Script") or current:IsA("ModuleScript") then
-				local url = string.format("https://api.github.com/repos/%s/contents/%s", s.repo, path)
-				local res = HttpService:RequestAsync({
-					Url = url,
-					Method = "GET",
-					Headers = {
-						Authorization = "token " .. s.token,
-						Accept = "application/vnd.github+json"
-					}
-				})
-				if res.StatusCode == 200 then
-					local body = HttpService:JSONDecode(res.Body)
-					current.Source = from_base64(body.content)
+				local url = string.format("https://raw.githubusercontent.com/%s/%s/main/%s", owner, repo, path)
+				print("pullSelectedRepoItems - Fetching URL:", url)
+				local success, response = pcall(function()
+					return HttpService:GetAsync(url, true)
+				end)
+				if success then
+					current.Source = response
 					statusBar.Text = "✅ Pulled " .. path
 				else
-					statusBar.Text = "❌ Failed to pull " .. path .. ": " .. res.StatusCode
+					statusBar.Text = "❌ Failed to pull " .. path .. ": " .. tostring(response)
+					print("pullSelectedRepoItems - Failed:", response)
 				end
 			else
 				statusBar.Text = "❌ Not a script: " .. instancePath
+				print("pullSelectedRepoItems - Not a script:", instancePath)
 			end
 		else
 			statusBar.Text = "❌ Invalid path: " .. path
+			print("pullSelectedRepoItems - Invalid path:", path)
 		end
 	end
 end
 
 local function deleteSelectedRepoItems(selectedItems)
 	local s = plugin:GetSetting("GitToolsSettings") or {}
-	if not s.token or not s.repo then
+	print("deleteSelectedRepoItems - Settings:", s)
+	print("deleteSelectedRepoItems - s.token:", s.token, "type:", type(s.token))
+	print("deleteSelectedRepoItems - s.repo:", s.repo, "type:", type(s.repo))
+	if not s.token or not s.repo or type(s.repo) ~= "string" or s.repo:match("^%s*$") then
 		statusBar.Text = "❌ Configure token/repo in Settings"
+		print("deleteSelectedRepoItems - Invalid settings")
+		settingsWidget.Enabled = true
+		return
+	end
+	local owner, repo = s.repo:match("([^/]+)/([^/]+)")
+	if not owner or not repo then
+		statusBar.Text = "❌ Invalid repo format"
+		print("deleteSelectedRepoItems - Invalid repo format:", s.repo)
+		settingsWidget.Enabled = true
 		return
 	end
 	for path, checkBtn in pairs(selectedItems) do
 		local sha = checkBtn:FindFirstChild("Sha").Value
-		local url = string.format("https://api.github.com/repos/%s/contents/%s", s.repo, path)
+		local url = string.format("https://api.github.com/repos/%s/%s/contents/%s", owner, repo, path)
 		local payload = {
 			message = "Deleted " .. path,
 			sha = sha,
 			branch = "main"
 		}
-		local res = HttpService:RequestAsync({
-			Url = url,
-			Method = "DELETE",
-			Headers = {
-				Authorization = "token " .. s.token,
-				Accept = "application/vnd.github+json"
-			},
-			Body = HttpService:JSONEncode(payload)
-		})
-		if res.StatusCode == 200 then
+		print("deleteSelectedRepoItems - Deleting URL:", url)
+		local success, response = pcall(function()
+			return HttpService:RequestAsync({
+				Url = url,
+				Method = "DELETE",
+				Headers = {
+					Authorization = "token " .. s.token,
+					Accept = "application/vnd.github+json"
+				},
+				Body = HttpService:JSONEncode(payload)
+			})
+		end)
+		if success and response.StatusCode == 200 then
 			statusBar.Text = "✅ Deleted " .. path
 		else
-			statusBar.Text = "❌ Failed to delete " .. path .. ": " .. res.StatusCode
+			statusBar.Text = "❌ Failed to delete " .. path .. ": " .. (response and response.StatusCode or "Request failed")
+			print("deleteSelectedRepoItems - Failed:", response and response.StatusCode or response)
 		end
 	end
+end
+
+local function fetchRepoStructure()
+	local s = plugin:GetSetting("GitToolsSettings") or {}
+	print("fetchRepoStructure - Settings:", s)
+	print("fetchRepoStructure - s.token:", s.token, "type:", type(s.token))
+	print("fetchRepoStructure - s.repo:", s.repo, "type:", type(s.repo))
+	if not s.token or not s.repo or type(s.repo) ~= "string" or s.repo:match("^%s*$") then
+		statusBar.Text = "❌ Configure token/repo in Settings"
+		print("fetchRepoStructure - Invalid settings")
+		settingsWidget.Enabled = true
+		return
+	end
+	local owner, repo = s.repo:match("([^/]+)/([^/]+)")
+	if not owner or not repo then
+		statusBar.Text = "❌ Invalid repo format (use owner/repo)"
+		print("fetchRepoStructure - Invalid repo format:", s.repo)
+		settingsWidget.Enabled = true
+		return
+	end
+	local url = string.format("https://api.github.com/repos/%s/%s/git/trees/main?recursive=1", owner, repo)
+	print("fetchRepoStructure - Fetching URL:", url)
+	local success, response = pcall(function()
+		return HttpService:GetAsync(url, true, {
+			Authorization = "token " .. s.token,
+			Accept = "application/vnd.github+json"
+		})
+	end)
+	if not success then
+		statusBar.Text = "❌ Failed to fetch repo: " .. tostring(response)
+		print("fetchRepoStructure - HTTP request failed:", response)
+		return
+	end
+	print("fetchRepoStructure - Response:", response)
+	local successParse, data = pcall(function()
+		return HttpService:JSONDecode(response)
+	end)
+	if not successParse or not data.tree then
+		statusBar.Text = "❌ Invalid repo data"
+		print("fetchRepoStructure - Failed to parse response or no tree data:", data)
+		return
+	end
+	buildRepoTreeView(data.tree)
+	statusBar.Text = "✅ Repo structure loaded"
 end
 
 -- Commit message dialog
@@ -480,6 +515,8 @@ local function showCommitMessageDialog(defaultMessage, callback)
 	confirmButton.Size = UDim2.new(0, 80, 0, 30)
 	confirmButton.Position = UDim2.new(0.5, -40, 0, 60)
 	confirmButton.Text = "Push"
+	confirmButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+	confirmButton.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
 	confirmButton.MouseButton1Click:Connect(function()
 		callback(textBox.Text)
 		screenGui:Destroy()
@@ -489,18 +526,20 @@ end
 -- Push selected scripts
 local function pushSelected()
 	local s = plugin:GetSetting("GitToolsSettings") or {}
-	if not s.token or not s.repo then
+	print("pushSelected - Settings:", s)
+	print("pushSelected - s.token:", s.token, "type:", type(s.token))
+	print("pushSelected - s.repo:", s.repo, "type:", type(s.repo))
+	if not s.token or not s.repo or type(s.repo) ~= "string" or s.repo:match("^%s*$") then
 		statusBar.Text = "❌ Configure token/repo in Settings"
-		print("[GitTools] Please configure token/repo via Settings button in toolbar.")
+		print("pushSelected - Invalid settings")
+		settingsWidget.Enabled = true
 		return
 	end
-
 	local selection = SelectionService:Get()
 	if #selection == 0 then
 		statusBar.Text = "❌ Select scripts to push"
 		return
 	end
-
 	local count = 0
 	for _, inst in ipairs(selection) do
 		if inst:IsA("Script") or inst:IsA("ModuleScript") then
@@ -509,24 +548,32 @@ local function pushSelected()
 			local success, err = loadstring(content)
 			if not success then
 				statusBar.Text = "❌ Syntax error in " .. path
+				print("pushSelected - Syntax error:", err)
 				return
 			end
-
-			local url = string.format("https://api.github.com/repos/%s/contents/%s", s.repo, path)
+			local owner, repo = s.repo:match("([^/]+)/([^/]+)")
+			if not owner or not repo then
+				statusBar.Text = "❌ Invalid repo format"
+				print("pushSelected - Invalid repo format:", s.repo)
+				settingsWidget.Enabled = true
+				return
+			end
+			local url = string.format("https://api.github.com/repos/%s/%s/contents/%s", owner, repo, path)
 			local sha = nil
-			local check = HttpService:RequestAsync({
-				Url = url,
-				Method = "GET",
-				Headers = {
-					Authorization = "token " .. s.token,
-					Accept = "application/vnd.github+json"
-				}
-			})
-			if check.StatusCode == 200 then
-				local body = HttpService:JSONDecode(check.Body)
+			local checkSuccess, checkResponse = pcall(function()
+				return HttpService:RequestAsync({
+					Url = url,
+					Method = "GET",
+					Headers = {
+						Authorization = "token " .. s.token,
+						Accept = "application/vnd.github+json"
+					}
+				})
+			end)
+			if checkSuccess and checkResponse.StatusCode == 200 then
+				local body = HttpService:JSONDecode(checkResponse.Body)
 				sha = body.sha
 			end
-
 			local defaultMessage = "Updated " .. path
 			showCommitMessageDialog(defaultMessage, function(message)
 				local payload = {
@@ -535,21 +582,23 @@ local function pushSelected()
 					branch = "main"
 				}
 				if sha then payload.sha = sha end
-
-				local res = HttpService:RequestAsync({
-					Url = url,
-					Method = "PUT",
-					Headers = {
-						Authorization = "token " .. s.token,
-						Accept = "application/vnd.github+json"
-					},
-					Body = HttpService:JSONEncode(payload)
-				})
-				if res.StatusCode == 200 or res.StatusCode == 201 then
+				local success, response = pcall(function()
+					return HttpService:RequestAsync({
+						Url = url,
+						Method = "PUT",
+						Headers = {
+							Authorization = "token " .. s.token,
+							Accept = "application/vnd.github+json"
+						},
+						Body = HttpService:JSONEncode(payload)
+					})
+				end)
+				if success and (response.StatusCode == 200 or response.StatusCode == 201) then
 					count = count + 1
 					statusBar.Text = "✅ Pushed " .. count .. " scripts"
 				else
-					statusBar.Text = "❌ Failed to push " .. path .. ": " .. res.StatusCode
+					statusBar.Text = "❌ Failed to push " .. path .. ": " .. (response and response.StatusCode or "Request failed")
+					print("pushSelected - Failed:", response and response.StatusCode or response)
 				end
 			end)
 			break -- Process one script at a time to avoid dialog overlap
@@ -563,7 +612,6 @@ local function copyTree()
 	local treeServices = plugin:GetSetting("GitToolsTreeServices") or {}
 	local includeNonScripts = s.includeNonScripts or false
 
-	-- Use only checklisted services
 	local validObjects = {}
 	for _, serviceName in ipairs(serviceList) do
 		if treeServices[serviceName] then
@@ -574,33 +622,39 @@ local function copyTree()
 		end
 	end
 
-	-- Sort objects for consistent output
 	table.sort(validObjects, function(a, b) return a.Name < b.Name end)
 
 	local tree = ""
 	local lines = 0
 
-	-- Build tree for each checklisted object
 	for i, obj in ipairs(validObjects) do
 		local isLast = i == #validObjects
 		tree = tree .. buildTree(obj, "", isLast, includeNonScripts)
 		lines = lines + #obj:GetDescendants() + 1
 	end
-
 	if tree == "" then
 		statusBar.Text = "❌ No services selected or found"
 		return
 	end
-
-	print("Tree copied:\n" .. tree) -- Placeholder for clipboard
+	print("copyTree - Tree copied:\n" .. tree)
 	statusBar.Text = "📋 Tree copied (" .. lines .. " lines)"
 end
 
 -- Connect buttons
 pushButton.MouseButton1Click:Connect(pushSelected)
 showRepoButton.MouseButton1Click:Connect(function()
-	repoViewerWidget.Enabled = true
-	fetchRepoStructure()
+	local s = plugin:GetSetting("GitToolsSettings") or {}
+	print("showRepoButton - Settings:", s)
+	print("showRepoButton - s.token:", s.token, "type:", type(s.token))
+	print("showRepoButton - s.repo:", s.repo, "type:", type(s.repo))
+	if not s.token or not s.repo or type(s.repo) ~= "string" or s.repo:match("^%s*$") then
+		settingsWidget.Enabled = true
+		statusBar.Text = "❌ Please configure token and repo"
+		print("showRepoButton - Invalid settings")
+	else
+		repoViewerWidget.Enabled = true
+		fetchRepoStructure()
+	end
 end)
 copyTreeButton.MouseButton1Click:Connect(copyTree)
 
