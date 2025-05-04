@@ -17,23 +17,6 @@ function to_base64(data)
 	end)..({ '', '==', '=' })[#data%3+1])
 end
 
--- Base64 decode
-function from_base64(data)
-	local b = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
-	data = string.gsub(data, '[^'..b..'=]', '')
-	return (data:gsub('.', function(x)
-		if (x == '=') then return '' end
-		local r,f='',(b:find(x)-1)
-		for i=6,1,-1 do r=r..(f%2^i-f%2^(i-1)>0 and '1' or '0') end
-		return r;
-	end):gsub('%d%d%d?%d?%d?%d?%d?%d?', function(x)
-		if (#x ~= 8) then return '' end
-		local c=0
-		for i=1,8 do c=c+(x:sub(i,i)=='1' and 2^(8-i) or 0) end
-		return string.char(c)
-	end))
-end
-
 -- Split function
 local function split(str, sep)
 	local result = {}
@@ -104,7 +87,7 @@ settingsFrame.BackgroundTransparency = 1
 local tokenLabel = Instance.new("TextLabel", settingsFrame)
 tokenLabel.Text = "GitHub Token:"; tokenLabel.Position = UDim2.new(0,10,0,10); tokenLabel.Size = UDim2.new(0,100,0,20)
 local tokenBox = Instance.new("TextBox", settingsFrame)
-tokenBox.PlaceholderText = "token"; tokenBox.Position = UDim2.new(0,120,0,10); tokenBox.Size = UDim2.new(0,160,0,20)
+tokenBox.PlaceholderText = "token (optional for public repos)"; tokenBox.Position = UDim2.new(0,120,0,10); tokenBox.Size = UDim2.new(0,160,0,20)
 
 local repoLabel = Instance.new("TextLabel", settingsFrame)
 repoLabel.Text = "Owner/Repo:"; repoLabel.Position = UDim2.new(0,10,0,40); repoLabel.Size = UDim2.new(0,100,0,20)
@@ -131,13 +114,8 @@ saveBtn.MouseButton1Click:Connect(function()
 		return
 	end
 	local tokenText = tokenBox.Text:gsub("%s+", "")
-	if tokenText == "" then
-		statusBar.Text = "❌ Token cannot be empty"
-		print("saveBtn - Empty token")
-		return
-	end
 	local settings = {
-		token = tokenText,
+		token = tokenText ~= "" and tokenText or nil,
 		repo = repoText,
 		includeNonScripts = includeNonScriptsBox.Text:lower() == "true"
 	}
@@ -297,85 +275,180 @@ repoViewerWidget.Enabled = false
 
 local repoViewerFrame = Instance.new("Frame", repoViewerWidget)
 repoViewerFrame.Size = UDim2.new(1, 0, 1, 0)
-repoViewerFrame.BackgroundTransparency = 1
+repoViewerFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40) -- Dark grey background
+repoViewerFrame.BackgroundTransparency = 0
 
--- Define dependent functions
-local function buildRepoTreeView(tree)
-	for _, child in ipairs(repoViewerFrame:GetChildren()) do
-		child:Destroy()
-	end
-	local scrollingFrame = Instance.new("ScrollingFrame", repoViewerFrame)
-	scrollingFrame.Size = UDim2.new(1, 0, 1, -50)
-	scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-	scrollingFrame.ScrollBarThickness = 10
-	local uiListLayout = Instance.new("UIListLayout", scrollingFrame)
-	uiListLayout.Padding = UDim.new(0, 5)
+-- Lua Code Viewer GUI
+local codeViewerInfo = DockWidgetPluginGuiInfo.new(Enum.InitialDockState.Float, true, true, 500, 600, 400, 400)
+local codeViewerWidget = plugin:CreateDockWidgetPluginGui("GitToolsCodeViewer", codeViewerInfo)
+codeViewerWidget.Title = "Lua Code Viewer"
+codeViewerWidget.Enabled = false
 
-	local selectedItems = {}
-	local blobCount = 0
+local codeViewerFrame = Instance.new("Frame", codeViewerWidget)
+codeViewerFrame.Size = UDim2.new(1, 0, 1, 0)
+codeViewerFrame.BackgroundTransparency = 1
 
-	for _, item in ipairs(tree) do
-		if item.type == "blob" then
-			blobCount = blobCount + 1
-			local frame = Instance.new("Frame", scrollingFrame)
-			frame.Size = UDim2.new(1, 0, 0, 20)
-			frame.BackgroundTransparency = 1
-			local checkBtn = Instance.new("TextButton", frame)
-			checkBtn.Name = item.path
-			checkBtn.Text = "□"
-			checkBtn.TextColor3 = Color3.fromRGB(255, 255, 255) -- White dots
-			checkBtn.Position = UDim2.new(0, 0, 0, 0)
-			checkBtn.Size = UDim2.new(0, 20, 0, 20)
-			checkBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-			local shaValue = Instance.new("StringValue", checkBtn)
-			shaValue.Name = "Sha"
-			shaValue.Value = item.sha
-			local label = Instance.new("TextLabel", frame)
-			label.Text = item.path
-			label.TextColor3 = Color3.fromRGB(255, 255, 255)
-			label.Position = UDim2.new(0, 25, 0, 0)
-			label.Size = UDim2.new(1, -25, 1, 0)
-			label.BackgroundTransparency = 1
-			label.TextXAlignment = Enum.TextXAlignment.Left
-			checkBtn.MouseButton1Click:Connect(function()
-				if selectedItems[item.path] then
-					selectedItems[item.path] = nil
-					checkBtn.Text = "□"
-				else
-					selectedItems[item.path] = checkBtn
-					checkBtn.Text = "■"
-				end
-			end)
+local codeScrollingFrame = Instance.new("ScrollingFrame", codeViewerFrame)
+codeScrollingFrame.Size = UDim2.new(1, -20, 1, -60)
+codeScrollingFrame.Position = UDim2.new(0, 10, 0, 10)
+codeScrollingFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+codeScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+codeScrollingFrame.ScrollBarThickness = 10
+
+local codeLayout = Instance.new("UIListLayout", codeScrollingFrame)
+codeLayout.Padding = UDim.new(0, 0)
+
+local codeCloseBtn = Instance.new("TextButton", codeViewerFrame)
+codeCloseBtn.Text = "Close"
+codeCloseBtn.Position = UDim2.new(0, 10, 1, -40)
+codeCloseBtn.Size = UDim2.new(0, 80, 0, 30)
+codeCloseBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+codeCloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+codeCloseBtn.AutoButtonColor = false
+codeCloseBtn.MouseButton1Click:Connect(function()
+	codeViewerWidget.Enabled = false
+end)
+
+-- Simple Lua lexer for syntax highlighting
+local function tokenizeLua(code)
+	local tokens = {}
+	local keywords = {
+		["and"] = true, ["break"] = true, ["do"] = true, ["else"] = true, ["elseif"] = true,
+		["end"] = true, ["false"] = true, ["for"] = true, ["function"] = true, ["if"] = true,
+		["in"] = true, ["local"] = true, ["nil"] = true, ["not"] = true, ["or"] = true,
+		["repeat"] = true, ["return"] = true, ["then"] = true, ["true"] = true, ["until"] = true,
+		["while"] = true
+	}
+	local i = 1
+	while i <= #code do
+		local char = code:sub(i, i)
+		-- Comments
+		if char == "-" and code:sub(i, i+1) == "--" then
+			local start = i
+			i = i + 2
+			if code:sub(i, i+1) == "[[" then
+				i = i + 2
+				local endPos = code:find("]]", i, true) or #code + 1
+				table.insert(tokens, { type = "comment", value = code:sub(start, endPos - 1) })
+				i = endPos
+			else
+				local endPos = code:find("\n", i, true) or #code + 1
+				table.insert(tokens, { type = "comment", value = code:sub(start, endPos - 1) })
+				i = endPos
+			end
+			-- Strings
+		elseif char == "\"" or char == "'" then
+			local start = i
+			local quote = char
+			i = i + 1
+			while i <= #code and code:sub(i, i) ~= quote do
+				if code:sub(i, i) == "\\" then i = i + 1 end
+				i = i + 1
+			end
+			i = i + 1
+			table.insert(tokens, { type = "string", value = code:sub(start, i - 1) })
+			-- Numbers
+		elseif char:match("%d") or (char == "-" and code:sub(i+1, i+1):match("%d")) then
+			local start = i
+			i = i + 1
+			while i <= #code and code:sub(i, i):match("[0-9%.eE%-%+]") do
+				i = i + 1
+			end
+			table.insert(tokens, { type = "number", value = code:sub(start, i - 1) })
+			-- Identifiers and keywords
+		elseif char:match("[%a_]")
+		then
+			local start = i
+			i = i + 1
+			while i <= #code and code:sub(i, i):match("[%w_]") do
+				i = i + 1
+			end
+			local value = code:sub(start, i - 1)
+			if keywords[value] then
+				table.insert(tokens, { type = "keyword", value = value })
+			else
+				table.insert(tokens, { type = "identifier", value = value })
+			end
+			-- Operators and punctuation
+		elseif char:match("[+%-*/=<>~!&|%^%(%)%[%]%{%},;:.#]") then
+			local start = i
+			i = i + 1
+			while i <= #code and code:sub(i, i):match("[=<>~!&|%.]") do
+				i = i + 1
+			end
+			table.insert(tokens, { type = "operator", value = code:sub(start, i - 1) })
+			-- Whitespace
+		elseif char:match("%s") then
+			local start = i
+			i = i + 1
+			while i <= #code and code:sub(i, i):match("%s") do
+				i = i + 1
+			end
+			table.insert(tokens, { type = "whitespace", value = code:sub(start, i - 1) })
+		else
+			i = i + 1
+			table.insert(tokens, { type = "unknown", value = char })
 		end
 	end
-	scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, blobCount * 25)
-
-	local pullBtn = Instance.new("TextButton", repoViewerFrame)
-	pullBtn.Text = "Pull Selected"
-	pullBtn.Position = UDim2.new(0, 10, 1, -40)
-	pullBtn.Size = UDim2.new(0, 100, 0, 30)
-	pullBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 150)
-	pullBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-	pullBtn.MouseButton1Click:Connect(function()
-		pullSelectedRepoItems(selectedItems)
-	end)
-
-	local deleteBtn = Instance.new("TextButton", repoViewerFrame)
-	deleteBtn.Text = "Delete Selected"
-	deleteBtn.Position = UDim2.new(0, 120, 1, -40)
-	deleteBtn.Size = UDim2.new(0, 100, 0, 30)
-	deleteBtn.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
-	deleteBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-	deleteBtn.MouseButton1Click:Connect(function()
-		deleteSelectedRepoItems(selectedItems)
-	end)
+	return tokens
 end
 
--- Validate settings before operations
+-- Display code with syntax highlighting
+local function displayCode(code, path)
+	for _, child in ipairs(codeScrollingFrame:GetChildren()) do
+		if child:IsA("TextLabel") then
+			child:Destroy()
+		end
+	end
+	local tokens = tokenizeLua(code)
+	local yOffset = 0
+	local maxWidth = 0
+	local lineHeight = 20
+	for _, token in ipairs(tokens) do
+		local color
+		if token.type == "keyword" then
+			color = Color3.fromRGB(86, 156, 214) -- Blue
+		elseif token.type == "string" then
+			color = Color3.fromRGB(214, 157, 133) -- Orange
+		elseif token.type == "comment" then
+			color = Color3.fromRGB(106, 153, 78) -- Green
+		elseif token.type == "number" then
+			color = Color3.fromRGB(181, 206, 168) -- Light green
+		elseif token.type == "identifier" or token.type == "operator" then
+			color = Color3.fromRGB(255, 255, 255) -- White
+		else
+			color = Color3.fromRGB(255, 255, 255) -- White for whitespace/unknown
+		end
+		for line in token.value:gmatch("([^\n]*)\n?") do
+			if line ~= "" then
+				local label = Instance.new("TextLabel", codeScrollingFrame)
+				label.Text = line
+				label.TextColor3 = color
+				label.Font = Enum.Font.Code
+				label.TextSize = 14
+				label.Size = UDim2.new(1, 0, 0, lineHeight)
+				label.Position = UDim2.new(0, 10, 0, yOffset)
+				label.BackgroundTransparency = 1
+				label.TextXAlignment = Enum.TextXAlignment.Left
+				label.TextYAlignment = Enum.TextYAlignment.Top
+				local textBounds = label.TextBounds
+				maxWidth = math.max(maxWidth, textBounds.X)
+				yOffset = yOffset + lineHeight
+			else
+				yOffset = yOffset + lineHeight
+			end
+		end
+	end
+	codeScrollingFrame.CanvasSize = UDim2.new(0, maxWidth + 20, 0, yOffset)
+	codeViewerWidget.Title = "Lua Code: " .. path
+	codeViewerWidget.Enabled = true
+end
+
+-- Validate settings for repo viewing
 local function validateSettings(s)
 	print("validateSettings - Checking settings:", s)
-	if not s or not s.token or not s.repo or type(s.repo) ~= "string" or s.repo:match("^%s*$") then
-		print("validateSettings - Invalid settings: token or repo missing")
+	if not s or not s.repo or type(s.repo) ~= "string" or s.repo:match("^%s*$") then
+		print("validateSettings - Invalid settings: repo missing")
 		return false
 	end
 	local owner, repo = s.repo:match("([^/]+)/([^/]+)")
@@ -387,112 +460,155 @@ local function validateSettings(s)
 	return true, owner, repo
 end
 
-local function pullSelectedRepoItems(selectedItems)
-	local s = plugin:GetSetting("GitToolsSettings") or {}
-	print("pullSelectedRepoItems - Settings:", s)
-	print("pullSelectedRepoItems - s.token:", s.token, "type:", type(s.token))
-	print("pullSelectedRepoItems - s.repo:", s.repo, "type:", type(s.repo))
-	local isValid, owner, repo = validateSettings(s)
-	if not isValid then
-		statusBar.Text = "❌ Configure token/repo in Settings"
-		settingsWidget.Enabled = true
-		return
+-- Build hierarchical repo tree view
+local function buildRepoTreeView(tree)
+	for _, child in ipairs(repoViewerFrame:GetChildren()) do
+		child:Destroy()
 	end
-	for path in pairs(selectedItems) do
-		local instancePath = path:match("^src/(.*)%.lua$")
-		if instancePath then
-			local parts = split(instancePath, "/")
-			local current = game
-			for _, part in ipairs(parts) do
-				current = current:FindFirstChild(part)
-				if not current then
-					statusBar.Text = "❌ Instance not found: " .. instancePath
-					print("pullSelectedRepoItems - Instance not found:", instancePath)
-					return
-				end
-			end
-			if current:IsA("Script") or current:IsA("ModuleScript") then
-				local url = string.format("https://raw.githubusercontent.com/%s/%s/main/%s", owner, repo, path)
-				print("pullSelectedRepoItems - Fetching URL:", url)
-				local success, response = pcall(function()
-					return HttpService:GetAsync(url, true)
+	local scrollingFrame = Instance.new("ScrollingFrame", repoViewerFrame)
+	scrollingFrame.Size = UDim2.new(1, 0, 1, -50)
+	scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+	scrollingFrame.ScrollBarThickness = 10
+	scrollingFrame.BackgroundTransparency = 1
+
+	local uiListLayout = Instance.new("UIListLayout", scrollingFrame)
+	uiListLayout.Padding = UDim.new(0, 2)
+
+	local itemCount = 0
+	local folderStates = {} -- Tracks expanded/collapsed state
+
+	-- Organize tree into a hierarchical structure
+	local function buildNode(path)
+		local parts = split(path, "/")
+		local current = {}
+		for i, part in ipairs(parts) do
+			local subPath = table.concat(parts, "/", 1, i)
+			current[subPath] = current[subPath] or { name = part, children = {}, isFile = false }
+			current = current[subPath].children
+		end
+		return current
+	end
+
+	local root = {}
+	for _, item in ipairs(tree) do
+		local node = buildNode(item.path)
+		if item.type == "blob" then
+			node[item.path] = { name = item.path:match("[^/]+$"), path = item.path, isFile = true }
+		end
+	end
+
+	-- Recursive function to render nodes
+	local function renderNode(node, parentFrame, indentLevel)
+		local indent = indentLevel * 20
+		for path, data in pairs(node) do
+			itemCount = itemCount + 1
+			local frame = Instance.new("Frame", parentFrame)
+			frame.Size = UDim2.new(1, 0, 0, 20)
+			frame.BackgroundTransparency = 1
+
+			local button = Instance.new("TextButton", frame)
+			button.Text = (data.isFile and "📄 " or "📁 ") .. data.name
+			button.TextColor3 = data.isFile and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(150, 150, 255)
+			button.Position = UDim2.new(0, indent + 10, 0, 0)
+			button.Size = UDim2.new(1, -indent - 10, 1, 0)
+			button.BackgroundTransparency = 1
+			button.TextXAlignment = Enum.TextXAlignment.Left
+			button.TextSize = 14
+
+			if data.isFile then
+				button.MouseButton1Click:Connect(function()
+					local s = plugin:GetSetting("GitToolsSettings") or {}
+					local isValid, owner, repo = validateSettings(s)
+					if not isValid then
+						statusBar.Text = "❌ Configure repo in Settings"
+						settingsWidget.Enabled = true
+						return
+					end
+					local url = string.format("https://raw.githubusercontent.com/%s/%s/main/%s", owner, repo, data.path)
+					print("buildRepoTreeView - Fetching file content:", url)
+					local success, response = pcall(function()
+						return HttpService:GetAsync(url, true)
+					end)
+					if success then
+						displayCode(response, data.path)
+						statusBar.Text = "✅ Showing code for " .. data.path
+						print("buildRepoTreeView - Content fetched for:", data.path)
+					else
+						statusBar.Text = "❌ Failed to fetch " .. data.path .. ": " .. tostring(response)
+						print("buildRepoTreeView - Failed:", response)
+					end
 				end)
-				if success then
-					current.Source = response
-					statusBar.Text = "✅ Pulled " .. path
-				else
-					statusBar.Text = "❌ Failed to pull " .. path .. ": " .. tostring(response)
-					print("pullSelectedRepoItems - Failed:", response)
-				end
 			else
-				statusBar.Text = "❌ Not a script: " .. instancePath
-				print("pullSelectedRepoItems - Not a script:", instancePath)
+				local childFrame = Instance.new("Frame", parentFrame)
+				childFrame.Size = UDim2.new(1, 0, 0, 0)
+				childFrame.BackgroundTransparency = 1
+				local childLayout = Instance.new("UIListLayout", childFrame)
+				childLayout.Padding = UDim.new(0, 2)
+
+				folderStates[path] = folderStates[path] or true -- Default to expanded
+				button.Text = (folderStates[path] and "▼ " or "▶ ") .. "📁 " .. data.name
+
+				button.MouseButton1Click:Connect(function()
+					folderStates[path] = not folderStates[path]
+					button.Text = (folderStates[path] and "▼ " or "▶ ") .. "📁 " .. data.name
+					childFrame.Visible = folderStates[path]
+					local childHeight = folderStates[path] and childLayout.AbsoluteContentSize.Y or 0
+					childFrame.Size = UDim2.new(1, 0, 0, childHeight)
+					local totalHeight = uiListLayout.AbsoluteContentSize.Y
+					scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, totalHeight)
+				end)
+
+				for childPath, childData in pairs(data.children) do
+					renderNode({ [childPath] = childData }, childFrame, indentLevel + 1)
+				end
+
+				local childHeight = folderStates[path] and childLayout.AbsoluteContentSize.Y or 0
+				childFrame.Size = UDim2.new(1, 0, 0, childHeight)
+				childFrame.Visible = folderStates[path]
 			end
-		else
-			statusBar.Text = "❌ Invalid path: " .. path
-			print("pullSelectedRepoItems - Invalid path:", path)
 		end
 	end
+
+	-- Render root nodes
+	for path, data in pairs(root) do
+		renderNode({ [path] = data }, scrollingFrame, 0)
+	end
+
+	local totalHeight = uiListLayout.AbsoluteContentSize.Y
+	scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, totalHeight)
+
+	local closeBtn = Instance.new("TextButton", repoViewerFrame)
+	closeBtn.Text = "Close"
+	closeBtn.Position = UDim2.new(0, 10, 1, -40)
+	closeBtn.Size = UDim2.new(0, 80, 0, 30)
+	closeBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+	closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	closeBtn.MouseButton1Click:Connect(function()
+		repoViewerWidget.Enabled = false
+	end)
 end
 
-local function deleteSelectedRepoItems(selectedItems)
-	local s = plugin:GetSetting("GitToolsSettings") or {}
-	print("deleteSelectedRepoItems - Settings:", s)
-	print("deleteSelectedRepoItems - s.token:", s.token, "type:", type(s.token))
-	print("deleteSelectedRepoItems - s.repo:", s.repo, "type:", type(s.repo))
-	local isValid, owner, repo = validateSettings(s)
-	if not isValid then
-		statusBar.Text = "❌ Configure token/repo in Settings"
-		settingsWidget.Enabled = true
-		return
-	end
-	for path, checkBtn in pairs(selectedItems) do
-		local sha = checkBtn:FindFirstChild("Sha").Value
-		local url = string.format("https://api.github.com/repos/%s/%s/contents/%s", owner, repo, path)
-		local payload = {
-			message = "Deleted " .. path,
-			sha = sha,
-			branch = "main"
-		}
-		print("deleteSelectedRepoItems - Deleting URL:", url)
-		local success, response = pcall(function()
-			return HttpService:RequestAsync({
-				Url = url,
-				Method = "DELETE",
-				Headers = {
-					Authorization = "token " .. s.token,
-					Accept = "application/vnd.github+json"
-				},
-				Body = HttpService:JSONEncode(payload)
-			})
-		end)
-		if success and response.StatusCode == 200 then
-			statusBar.Text = "✅ Deleted " .. path
-		else
-			statusBar.Text = "❌ Failed to delete " .. path .. ": " .. (response and response.StatusCode or "Request failed")
-			print("deleteSelectedRepoItems - Failed:", response and response.StatusCode or response)
-		end
-	end
-end
-
+-- Fetch repo structure
 local function fetchRepoStructure()
 	local s = plugin:GetSetting("GitToolsSettings") or {}
 	print("fetchRepoStructure - Settings:", s)
-	print("fetchRepoStructure - s.token:", s.token, "type:", type(s.token))
 	print("fetchRepoStructure - s.repo:", s.repo, "type:", type(s.repo))
 	local isValid, owner, repo = validateSettings(s)
 	if not isValid then
-		statusBar.Text = "❌ Configure token/repo in Settings"
+		statusBar.Text = "❌ Configure repo in Settings"
 		settingsWidget.Enabled = true
 		return
 	end
 	local url = string.format("https://api.github.com/repos/%s/%s/git/trees/main?recursive=1", owner, repo)
 	print("fetchRepoStructure - Fetching URL:", url)
+	local headers = {
+		Accept = "application/vnd.github+json"
+	}
+	if s.token then
+		headers.Authorization = "token " .. s.token
+	end
 	local success, response = pcall(function()
-		return HttpService:GetAsync(url, true, {
-			Authorization = "token " .. s.token,
-			Accept = "application/vnd.github+json"
-		})
+		return HttpService:GetAsync(url, true, headers)
 	end)
 	if not success then
 		statusBar.Text = "❌ Failed to fetch repo: " .. tostring(response)
@@ -542,7 +658,7 @@ local function pushSelected()
 	print("pushSelected - s.token:", s.token, "type:", type(s.token))
 	print("pushSelected - s.repo:", s.repo, "type:", type(s.repo))
 	local isValid, owner, repo = validateSettings(s)
-	if not isValid then
+	if not isValid or not s.token then
 		statusBar.Text = "❌ Configure token/repo in Settings"
 		settingsWidget.Enabled = true
 		return
@@ -650,11 +766,10 @@ pushButton.MouseButton1Click:Connect(pushSelected)
 showRepoButton.MouseButton1Click:Connect(function()
 	local s = plugin:GetSetting("GitToolsSettings") or {}
 	print("showRepoButton - Settings:", s)
-	print("showRepoButton - s.token:", s.token, "type:", type(s.token))
 	print("showRepoButton - s.repo:", s.repo, "type:", type(s.repo))
 	local isValid = validateSettings(s)
 	if not isValid then
-		statusBar.Text = "❌ Please configure token and repo"
+		statusBar.Text = "❌ Please configure repo"
 		settingsWidget.Enabled = true
 		return
 	end
