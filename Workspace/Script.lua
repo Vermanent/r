@@ -75,83 +75,82 @@ local function buildTree(instance, indent, isLast, includeNonScripts)
 end
 
 -- Settings GUI
-local settingsInfo = DockWidgetPluginGuiInfo.new(Enum.InitialDockState.Float, true, true, 300, 200, 200, 150)
+local settingsInfo = DockWidgetPluginGuiInfo.new(Enum.InitialDockState.Float, false, false, 300, 200, 200, 150)
 local settingsWidget = plugin:CreateDockWidgetPluginGui("GitToolsSettings", settingsInfo)
 settingsWidget.Title = "GitTools Settings"
 settingsWidget.Enabled = false
 
-local settingsFrame = Instance.new("Frame", settingsWidget)
+local settingsFrame = Instance.new("Frame")
 settingsFrame.Size = UDim2.new(1, 0, 1, 0)
 settingsFrame.BackgroundTransparency = 1
+settingsFrame.Parent = settingsWidget
 
-local tokenLabel = Instance.new("TextLabel", settingsFrame)
-tokenLabel.Text = "GitHub Token:"; tokenLabel.Position = UDim2.new(0,10,0,10); tokenLabel.Size = UDim2.new(0,100,0,20)
-local tokenBox = Instance.new("TextBox", settingsFrame)
-tokenBox.PlaceholderText = "token (optional for public repos)"; tokenBox.Position = UDim2.new(0,120,0,10); tokenBox.Size = UDim2.new(0,160,0,20)
+-- UI elements
+local tokenLabel = Instance.new("TextLabel")
+tokenLabel.Text = "GitHub Token:"
+tokenLabel.Position = UDim2.new(0, 10, 0, 10)
+tokenLabel.Size = UDim2.new(0, 100, 0, 20)
+tokenLabel.Parent = settingsFrame
 
-local repoLabel = Instance.new("TextLabel", settingsFrame)
-repoLabel.Text = "Owner/Repo:"; repoLabel.Position = UDim2.new(0,10,0,40); repoLabel.Size = UDim2.new(0,100,0,20)
-local repoBox = Instance.new("TextBox", settingsFrame)
-repoBox.PlaceholderText = "user/repo"; repoBox.Position = UDim2.new(0,120,0,40); repoBox.Size = UDim2.new(0,160,0,20)
+local tokenBox = Instance.new("TextBox")
+tokenBox.PlaceholderText = "token (optional for public repos)"
+tokenBox.Position = UDim2.new(0, 120, 0, 10)
+tokenBox.Size = UDim2.new(0, 160, 0, 20)
+tokenBox.Parent = settingsFrame
 
-local includeNonScriptsLabel = Instance.new("TextLabel", settingsFrame)
-includeNonScriptsLabel.Text = "Include Non-Scripts in Tree:"; includeNonScriptsLabel.Position = UDim2.new(0,10,0,70); includeNonScriptsLabel.Size = UDim2.new(0,150,0,20)
-local includeNonScriptsBox = Instance.new("TextBox", settingsFrame)
-includeNonScriptsBox.Text = "false"; includeNonScriptsBox.Position = UDim2.new(0,160,0,70); includeNonScriptsBox.Size = UDim2.new(0,50,0,20)
+local repoLabel = Instance.new("TextLabel")
+repoLabel.Text = "Owner/Repo:"
+repoLabel.Position = UDim2.new(0, 10, 0, 40)
+repoLabel.Size = UDim2.new(0, 100, 0, 20)
+repoLabel.Parent = settingsFrame
 
-local saveBtn = Instance.new("TextButton", settingsFrame)
+local repoBox = Instance.new("TextBox")
+repoBox.PlaceholderText = "user/repo"
+repoBox.Position = UDim2.new(0, 120, 0, 40)
+repoBox.Size = UDim2.new(0, 160, 0, 20)
+repoBox.Parent = settingsFrame
+
+local includeNonScriptsLabel = Instance.new("TextLabel")
+includeNonScriptsLabel.Text = "Include Non-Scripts in Tree:"
+includeNonScriptsLabel.Position = UDim2.new(0, 10, 0, 70)
+includeNonScriptsLabel.Size = UDim2.new(0, 150, 0, 20)
+includeNonScriptsLabel.Parent = settingsFrame
+
+local includeNonScriptsBox = Instance.new("TextBox")
+includeNonScriptsBox.Text = "false"
+includeNonScriptsBox.Position = UDim2.new(0, 160, 0, 70)
+includeNonScriptsBox.Size = UDim2.new(0, 50, 0, 20)
+includeNonScriptsBox.Parent = settingsFrame
+
+local saveBtn = Instance.new("TextButton")
 saveBtn.Text = "Save"
-saveBtn.Position = UDim2.new(0,10,0,100)
-saveBtn.Size = UDim2.new(0,80,0,30)
+saveBtn.Position = UDim2.new(0, 10, 0, 100)
+saveBtn.Size = UDim2.new(0, 80, 0, 30)
 saveBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
 saveBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 saveBtn.AutoButtonColor = false
-saveBtn.MouseButton1Click:Connect(function()
-	local repoText = repoBox.Text:gsub("%s+", "") -- Trim whitespace
-	if repoText == "" or not repoText:match("([^/]+)/([^/]+)") then
-		statusBar.Text = "❌ Invalid repo format (use owner/repo)"
-		print("saveBtn - Invalid repo format:", repoText)
-		return
-	end
-	local tokenText = tokenBox.Text:gsub("%s+", "")
-	local settings = {
-		token = tokenText ~= "" and tokenText or nil,
-		repo = repoText,
-		includeNonScripts = includeNonScriptsBox.Text:lower() == "true"
-	}
-	print("saveBtn - Saving settings:", settings)
-	plugin:SetSetting("GitToolsSettings", settings)
-	settingsWidget.Enabled = false
-	statusBar.Text = "✅ Settings saved"
-	print("[GitTools] Settings saved successfully!")
-end)
+saveBtn.Parent = settingsFrame
 
-local clearSettingsBtn = Instance.new("TextButton", settingsFrame)
+local clearSettingsBtn = Instance.new("TextButton")
 clearSettingsBtn.Text = "Clear Settings"
-clearSettingsBtn.Position = UDim2.new(0,100,0,100)
-clearSettingsBtn.Size = UDim2.new(0,80,0,30)
+clearSettingsBtn.Position = UDim2.new(0, 100, 0, 100)
+clearSettingsBtn.Size = UDim2.new(0, 80, 0, 30)
 clearSettingsBtn.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
 clearSettingsBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 clearSettingsBtn.AutoButtonColor = false
-clearSettingsBtn.MouseButton1Click:Connect(function()
-	plugin:SetSetting("GitToolsSettings", nil)
-	tokenBox.Text = ""
-	repoBox.Text = ""
-	includeNonScriptsBox.Text = "false"
-	statusBar.Text = "✅ Settings cleared"
-	print("[GitTools] Settings cleared!")
-end)
+clearSettingsBtn.Parent = settingsFrame
 
-local configureServicesBtn = Instance.new("TextButton", settingsFrame)
+local configureServicesBtn = Instance.new("TextButton")
 configureServicesBtn.Text = "Tree Services"
-configureServicesBtn.Position = UDim2.new(0,190,0,100)
-configureServicesBtn.Size = UDim2.new(0,80,0,30)
+configureServicesBtn.Position = UDim2.new(0, 190, 0, 100)
+configureServicesBtn.Size = UDim2.new(0, 80, 0, 30)
 configureServicesBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
 configureServicesBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 configureServicesBtn.AutoButtonColor = false
+configureServicesBtn.Parent = settingsFrame
 
 -- Tree Services Checklist GUI
-local servicesInfo = DockWidgetPluginGuiInfo.new(Enum.InitialDockState.Float, true, true, 300, 400, 200, 300)
+local servicesInfo = DockWidgetPluginGuiInfo.new(Enum.InitialDockState.Float, false, false, 300, 400, 200, 300)
 local servicesWidget = plugin:CreateDockWidgetPluginGui("GitToolsTreeServices", servicesInfo)
 servicesWidget.Title = "Tree Services"
 servicesWidget.Enabled = false
@@ -159,6 +158,16 @@ servicesWidget.Enabled = false
 local servicesFrame = Instance.new("Frame", servicesWidget)
 servicesFrame.Size = UDim2.new(1, 0, 1, 0)
 servicesFrame.BackgroundTransparency = 1
+
+local servicesScrollingFrame = Instance.new("ScrollingFrame", servicesFrame)
+servicesScrollingFrame.Size = UDim2.new(1, -20, 1, -50)
+servicesScrollingFrame.Position = UDim2.new(0, 10, 0, 10)
+servicesScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+servicesScrollingFrame.ScrollBarThickness = 10
+servicesScrollingFrame.BackgroundTransparency = 1
+
+local servicesListLayout = Instance.new("UIListLayout", servicesScrollingFrame)
+servicesListLayout.Padding = UDim.new(0, 5)
 
 local serviceList = {
 	"Workspace", "Players", "Lighting", "MaterialService", "NetworkClient",
@@ -168,9 +177,8 @@ local serviceList = {
 
 local serviceToggles = {}
 local function createServiceToggle(serviceName, index)
-	local toggleFrame = Instance.new("Frame", servicesFrame)
-	toggleFrame.Position = UDim2.new(0, 10, 0, 10 + (index - 1) * 25)
-	toggleFrame.Size = UDim2.new(1, -20, 0, 20)
+	local toggleFrame = Instance.new("Frame", servicesScrollingFrame)
+	toggleFrame.Size = UDim2.new(1, 0, 0, 20)
 	toggleFrame.BackgroundTransparency = 1
 
 	local checkBtn = Instance.new("TextButton", toggleFrame)
@@ -210,6 +218,10 @@ for serviceName, toggle in pairs(serviceToggles) do
 	end
 end
 
+servicesListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+	servicesScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, servicesListLayout.AbsoluteContentSize.Y)
+end)
+
 local servicesCloseBtn = Instance.new("TextButton", servicesFrame)
 servicesCloseBtn.Text = "Close"
 servicesCloseBtn.Position = UDim2.new(0, 10, 1, -40)
@@ -219,19 +231,11 @@ servicesCloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 servicesCloseBtn.AutoButtonColor = false
 servicesCloseBtn.MouseButton1Click:Connect(function()
 	servicesWidget.Enabled = false
-	print("[GitTools] Tree services configuration saved!")
 end)
 
 configureServicesBtn.MouseButton1Click:Connect(function()
 	servicesWidget.Enabled = true
 end)
-
--- Load saved settings
-local settings = plugin:GetSetting("GitToolsSettings") or {}
-print("loadSettings - Loaded settings:", settings)
-if settings.token then tokenBox.Text = settings.token end
-if settings.repo then repoBox.Text = settings.repo end
-if settings.includeNonScripts ~= nil then includeNonScriptsBox.Text = tostring(settings.includeNonScripts) end
 
 -- Main UI setup
 local widget = plugin:CreateDockWidgetPluginGui(
@@ -239,6 +243,8 @@ local widget = plugin:CreateDockWidgetPluginGui(
 	DockWidgetPluginGuiInfo.new(Enum.InitialDockState.Float, false, false, 200, 150, 150, 100)
 )
 widget.Title = "GitTools"
+widget.Enabled = false
+
 local frame = Instance.new("Frame", widget)
 frame.Size = UDim2.new(1, 0, 1, 0)
 frame.BackgroundTransparency = 1
@@ -301,7 +307,7 @@ setupButton(showRepoButton, Color3.fromRGB(60, 60, 120))
 setupButton(copyTreeButton, Color3.fromRGB(120, 60, 60))
 
 -- Repo Viewer GUI
-local repoViewerInfo = DockWidgetPluginGuiInfo.new(Enum.InitialDockState.Float, true, true, 400, 600, 300, 400)
+local repoViewerInfo = DockWidgetPluginGuiInfo.new(Enum.InitialDockState.Float, false, false, 400, 600, 300, 400)
 local repoViewerWidget = plugin:CreateDockWidgetPluginGui("GitToolsRepoViewer", repoViewerInfo)
 repoViewerWidget.Title = "Repository Viewer"
 repoViewerWidget.Enabled = false
@@ -312,7 +318,7 @@ repoViewerFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 repoViewerFrame.BackgroundTransparency = 0
 
 -- Lua Code Viewer GUI
-local codeViewerInfo = DockWidgetPluginGuiInfo.new(Enum.InitialDockState.Float, true, true, 500, 600, 400, 400)
+local codeViewerInfo = DockWidgetPluginGuiInfo.new(Enum.InitialDockState.Float, false, false, 500, 600, 400, 400)
 local codeViewerWidget = plugin:CreateDockWidgetPluginGui("GitToolsCodeViewer", codeViewerInfo)
 codeViewerWidget.Title = "Lua Code Viewer"
 codeViewerWidget.Enabled = false
@@ -329,7 +335,7 @@ codeScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
 codeScrollingFrame.ScrollBarThickness = 10
 
 local contentFrame = Instance.new("Frame", codeScrollingFrame)
-contentFrame.Size = UDim2.new(1, 0, 0, 0) -- Height will be set dynamically
+contentFrame.Size = UDim2.new(1, 0, 0, 0)
 contentFrame.BackgroundTransparency = 1
 
 local codeLabel = Instance.new("TextLabel", contentFrame)
@@ -383,7 +389,6 @@ local function tokenizeLua(code)
 	local i = 1
 	while i <= #code do
 		local char = code:sub(i, i)
-		-- Comments
 		if char == "-" and code:sub(i, i+1) == "--" then
 			local start = i
 			i = i + 2
@@ -397,7 +402,6 @@ local function tokenizeLua(code)
 				table.insert(tokens, { type = "comment", value = code:sub(start, endPos - 1) })
 				i = endPos
 			end
-			-- Strings
 		elseif char == "\"" or char == "'" then
 			local start = i
 			local quote = char
@@ -408,7 +412,6 @@ local function tokenizeLua(code)
 			end
 			i = i + 1
 			table.insert(tokens, { type = "string", value = code:sub(start, i - 1) })
-			-- Numbers
 		elseif char:match("%d") or (char == "-" and code:sub(i+1, i+1):match("%d")) then
 			local start = i
 			i = i + 1
@@ -416,7 +419,6 @@ local function tokenizeLua(code)
 				i = i + 1
 			end
 			table.insert(tokens, { type = "number", value = code:sub(start, i - 1) })
-			-- Identifiers and keywords
 		elseif char:match("[%a_]")
 		then
 			local start = i
@@ -430,7 +432,6 @@ local function tokenizeLua(code)
 			else
 				table.insert(tokens, { type = "identifier", value = value })
 			end
-			-- Operators and punctuation
 		elseif char:match("[+%-*/=<>~!&|%^%(%)%[%]%{%},;:.#]") then
 			local start = i
 			i = i + 1
@@ -438,7 +439,6 @@ local function tokenizeLua(code)
 				i = i + 1
 			end
 			table.insert(tokens, { type = "operator", value = code:sub(start, i - 1) })
-			-- Whitespace
 		elseif char:match("%s") then
 			local start = i
 			i = i + 1
@@ -474,13 +474,13 @@ local function displayCode(code, path)
 		else
 			color = "#ffffff"
 		end
-		local escapedValue = token.value:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;")
+		local escapedValue = token.value:gsub("&", "&"):gsub("<", "<"):gsub(">", ">")
 		richText = richText .. string.format('<font color="%s">%s</font>', color, escapedValue)
 		plainText = plainText .. token.value
 	end
 	codeLabel.Text = richText
 	codeTextBox.Text = plainText
-	wait() -- Wait for TextBounds to update
+	wait()
 	local height = codeLabel.TextBounds.Y
 	contentFrame.Size = UDim2.new(1, 0, 0, height)
 	codeScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, height)
@@ -490,19 +490,82 @@ end
 
 -- Validate settings for repo viewing
 local function validateSettings(s)
-	print("validateSettings - Checking settings:", s)
 	if not s or not s.repo or type(s.repo) ~= "string" or s.repo:match("^%s*$") then
-		print("validateSettings - Invalid settings: repo missing")
 		return false
 	end
 	local owner, repo = s.repo:match("([^/]+)/([^/]+)")
 	if not owner or not repo then
-		print("validateSettings - Invalid repo format:", s.repo)
 		return false
 	end
-	print("validateSettings - Settings valid:", s)
 	return true, owner, repo
 end
+
+-- Load settings into UI with delay to ensure UI is ready
+task.defer(function()
+	local s = plugin:GetSetting("GitToolsSettings") or {}
+	if tokenBox and s.token then tokenBox.Text = s.token end
+	if repoBox and s.repo then repoBox.Text = s.repo end
+	if includeNonScriptsBox and s.includeNonScripts ~= nil then includeNonScriptsBox.Text = tostring(s.includeNonScripts) end
+end)
+
+-- Save settings
+saveBtn.MouseButton1Click:Connect(function()
+	task.defer(function()
+		-- Debug prints to identify nil elements
+		print("saveBtn - repoBox:", repoBox, "tokenBox:", tokenBox, "includeNonScriptsBox:", includeNonScriptsBox)
+		if not (repoBox and tokenBox and includeNonScriptsBox and statusBar) then
+			if statusBar then statusBar.Text = "❌ UI elements missing" end
+			return
+		end
+		local repoText = repoBox.Text and repoBox.Text:gsub("%s+", "") or ""
+		if repoText == "" or not repoText:match("([^/]+)/([^/]+)") then
+			statusBar.Text = "❌ Invalid repo format (use owner/repo)"
+			return
+		end
+		local tokenText = tokenBox.Text and tokenBox.Text:gsub("%s+", "") or ""
+		local includeNonScriptsText = includeNonScriptsBox.Text and includeNonScriptsBox.Text:lower() or "false"
+		local settings = {
+			token = tokenText ~= "" and tokenText or nil,
+			repo = repoText,
+			includeNonScripts = includeNonScriptsText == "true"
+		}
+		plugin:SetSetting("GitToolsSettings", settings)
+		settingsWidget.Enabled = false
+		statusBar.Text = "✅ Settings saved"
+	end)
+end)
+
+-- Clear settings
+clearSettingsBtn.MouseButton1Click:Connect(function()
+	task.defer(function()
+		-- Debug prints to identify nil elements
+		print("clearSettingsBtn - tokenBox:", tokenBox, "repoBox:", repoBox, "includeNonScriptsBox:", includeNonScriptsBox)
+		if not (tokenBox and repoBox and includeNonScriptsBox and statusBar) then
+			if statusBar then statusBar.Text = "❌ UI elements missing" end
+			return
+		end
+		plugin:SetSetting("GitToolsSettings", nil)
+		tokenBox.Text = ""
+		repoBox.Text = ""
+		includeNonScriptsBox.Text = "false"
+		statusBar.Text = "✅ Settings cleared"
+	end)
+end)
+
+-- Ensure GUIs are disabled on startup
+task.defer(function()
+	widget.Enabled = false
+	settingsWidget.Enabled = false
+	servicesWidget.Enabled = false
+	repoViewerWidget.Enabled = false
+	codeViewerWidget.Enabled = false
+	-- Clear saved GUI states
+	plugin:SetSetting("GitToolsWidgetEnabled", nil)
+	plugin:SetSetting("GitToolsSettingsWidgetEnabled", nil)
+	plugin:SetSetting("GitToolsTreeServicesWidgetEnabled", nil)
+	plugin:SetSetting("GitToolsRepoViewerWidgetEnabled", nil)
+	plugin:SetSetting("GitToolsCodeViewerWidgetEnabled", nil)
+end)
 
 -- Build hierarchical repo tree view
 local function buildRepoTreeView(tree)
@@ -519,9 +582,8 @@ local function buildRepoTreeView(tree)
 	uiListLayout.Padding = UDim.new(0, 2)
 
 	local itemCount = 0
-	local folderStates = {} -- Tracks expanded/collapsed state
+	local folderStates = {}
 
-	-- Build the tree structure
 	local root = {}
 	for _, item in ipairs(tree) do
 		local parts = split(item.path, "/")
@@ -543,7 +605,6 @@ local function buildRepoTreeView(tree)
 		end
 	end
 
-	-- Recursive function to render nodes
 	local function renderNode(node, parentFrame, indentLevel)
 		local indent = indentLevel * 20
 		for name, data in pairs(node) do
@@ -571,17 +632,14 @@ local function buildRepoTreeView(tree)
 						return
 					end
 					local url = string.format("https://raw.githubusercontent.com/%s/%s/main/%s", owner, repo, data.path)
-					print("buildRepoTreeView - Fetching file content:", url)
 					local success, response = pcall(function()
 						return HttpService:GetAsync(url, true)
 					end)
 					if success then
 						displayCode(response, data.path)
 						statusBar.Text = "✅ Showing code for " .. data.path
-						print("buildRepoTreeView - Content fetched for:", data.path)
 					else
 						statusBar.Text = "❌ Failed to fetch " .. data.path .. ": " .. tostring(response)
-						print("buildRepoTreeView - Failed:", response)
 					end
 				end)
 			else
@@ -591,7 +649,7 @@ local function buildRepoTreeView(tree)
 				local childLayout = Instance.new("UIListLayout", childFrame)
 				childLayout.Padding = UDim.new(0, 2)
 
-				folderStates[name] = folderStates[name] or true -- Default to expanded
+				folderStates[name] = folderStates[name] or true
 				button.Text = (folderStates[name] and "▼ " or "▶ ") .. "📁 " .. data.name
 
 				button.MouseButton1Click:Connect(function()
@@ -615,7 +673,6 @@ local function buildRepoTreeView(tree)
 		end
 	end
 
-	-- Render root nodes
 	for name, data in pairs(root) do
 		renderNode({ [name] = data }, scrollingFrame, 0)
 	end
@@ -637,8 +694,6 @@ end
 -- Fetch repo structure
 local function fetchRepoStructure()
 	local s = plugin:GetSetting("GitToolsSettings") or {}
-	print("fetchRepoStructure - Settings:", s)
-	print("fetchRepoStructure - s.repo:", s.repo, "type:", type(s.repo))
 	local isValid, owner, repo = validateSettings(s)
 	if not isValid then
 		statusBar.Text = "❌ Configure repo in Settings"
@@ -646,7 +701,6 @@ local function fetchRepoStructure()
 		return
 	end
 	local url = string.format("https://api.github.com/repos/%s/%s/git/trees/main?recursive=1", owner, repo)
-	print("fetchRepoStructure - Fetching URL:", url)
 	local headers = {
 		Accept = "application/vnd.github+json"
 	}
@@ -658,16 +712,13 @@ local function fetchRepoStructure()
 	end)
 	if not success then
 		statusBar.Text = "❌ Failed to fetch repo: " .. tostring(response)
-		print("fetchRepoStructure - HTTP request failed:", response)
 		return
 	end
-	print("fetchRepoStructure - Response:", response)
 	local successParse, data = pcall(function()
 		return HttpService:JSONDecode(response)
 	end)
 	if not successParse or not data.tree then
 		statusBar.Text = "❌ Invalid repo data"
-		print("fetchRepoStructure - Failed to parse response or no tree data:", data)
 		return
 	end
 	buildRepoTreeView(data.tree)
@@ -700,9 +751,6 @@ end
 -- Push selected scripts
 local function pushSelected()
 	local s = plugin:GetSetting("GitToolsSettings") or {}
-	print("pushSelected - Settings:", s)
-	print("pushSelected - s.token:", s.token, "type:", type(s.token))
-	print("pushSelected - s.repo:", s.repo, "type:", type(s.repo))
 	local isValid, owner, repo = validateSettings(s)
 	if not isValid or not s.token then
 		statusBar.Text = "❌ Configure token/repo in Settings"
@@ -710,19 +758,25 @@ local function pushSelected()
 		return
 	end
 	local selection = SelectionService:Get()
-	if #selection == 0 then
+	local scriptsToPush = {}
+	for _, inst in ipairs(selection) do
+		if inst:IsA("Script") or inst:IsA("ModuleScript") then
+			table.insert(scriptsToPush, inst)
+		end
+	end
+	if #scriptsToPush == 0 then
 		statusBar.Text = "❌ Select scripts to push"
 		return
 	end
-	local count = 0
-	for _, inst in ipairs(selection) do
-		if inst:IsA("Script") or inst:IsA("ModuleScript") then
+	local defaultMessage = "Updated " .. (#scriptsToPush == 1 and getScriptPath(scriptsToPush[1]) or tostring(#scriptsToPush) .. " scripts")
+	showCommitMessageDialog(defaultMessage, function(message)
+		local count = 0
+		for _, inst in ipairs(scriptsToPush) do
 			local path = getScriptPath(inst)
 			local content = inst.Source
 			local success, err = loadstring(content)
 			if not success then
 				statusBar.Text = "❌ Syntax error in " .. path
-				print("pushSelected - Syntax error:", err)
 				return
 			end
 			local url = string.format("https://api.github.com/repos/%s/%s/contents/%s", owner, repo, path)
@@ -741,36 +795,29 @@ local function pushSelected()
 				local body = HttpService:JSONDecode(checkResponse.Body)
 				sha = body.sha
 			end
-			local defaultMessage = "Updated " .. path
-			showCommitMessageDialog(defaultMessage, function(message)
-				local payload = {
-					message = message,
-					content = to_base64(content),
-					branch = "main"
-				}
-				if sha then payload.sha = sha end
-				local success, response = pcall(function()
-					return HttpService:RequestAsync({
-						Url = url,
-						Method = "PUT",
-						Headers = {
-							Authorization = "token " .. s.token,
-							Accept = "application/vnd.github+json"
-						},
-						Body = HttpService:JSONEncode(payload)
-					})
-				end)
-				if success and (response.StatusCode == 200 or response.StatusCode == 201) then
-					count = count + 1
-					statusBar.Text = "✅ Pushed " .. count .. " scripts"
-				else
-					statusBar.Text = "❌ Failed to push " .. path .. ": " .. (response and response.StatusCode or "Request failed")
-					print("pushSelected - Failed:", response and response.StatusCode or response)
-				end
+			local payload = {
+				message = message,
+				content = to_base64(content),
+				branch = "main"
+			}
+			if sha then payload.sha = sha end
+			local success, response = pcall(function()
+				return HttpService:RequestAsync({
+					Url = url,
+					Method = "PUT",
+					Headers = {
+						Authorization = "token " .. s.token,
+						Accept = "application/vnd.github+json"
+					},
+					Body = HttpService:JSONEncode(payload)
+				})
 			end)
-			break -- Process one script at a time to avoid dialog overlap
+			if success and (response.StatusCode == 200 or response.StatusCode == 201) then
+				count = count + 1
+			end
 		end
-	end
+		statusBar.Text = "✅ Pushed " .. count .. " scripts"
+	end)
 end
 
 -- Copy tree
@@ -811,8 +858,6 @@ end
 pushButton.MouseButton1Click:Connect(pushSelected)
 showRepoButton.MouseButton1Click:Connect(function()
 	local s = plugin:GetSetting("GitToolsSettings") or {}
-	print("showRepoButton - Settings:", s)
-	print("showRepoButton - s.repo:", s.repo, "type:", type(s.repo))
 	local isValid = validateSettings(s)
 	if not isValid then
 		statusBar.Text = "❌ Please configure repo"
@@ -838,5 +883,3 @@ local settingsButton = Toolbar:CreateButton("Settings", "Configure token & repo"
 settingsButton.Click:Connect(function()
 	settingsWidget.Enabled = not settingsWidget.Enabled
 end)
-
-print("[GitTools] Plugin loaded. Use Settings button in toolbar to configure.")
