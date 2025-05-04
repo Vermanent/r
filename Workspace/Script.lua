@@ -243,29 +243,62 @@ local frame = Instance.new("Frame", widget)
 frame.Size = UDim2.new(1, 0, 1, 0)
 frame.BackgroundTransparency = 1
 
+local uiListLayout = Instance.new("UIListLayout", frame)
+uiListLayout.Padding = UDim.new(0, 5)
+uiListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
 local statusBar = Instance.new("TextLabel", frame)
 statusBar.Size = UDim2.new(1, 0, 0, 20)
-statusBar.Position = UDim2.new(0, 0, 1, -20)
+statusBar.LayoutOrder = 4
 statusBar.Text = "Ready"
 statusBar.TextScaled = true
+statusBar.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+statusBar.TextColor3 = Color3.fromRGB(255, 255, 255)
 
 local pushButton = Instance.new("TextButton", frame)
 pushButton.Size = UDim2.new(1, 0, 0, 30)
-pushButton.Position = UDim2.new(0, 0, 0, 0)
+pushButton.LayoutOrder = 1
 pushButton.Text = "Push Selected"
-pushButton.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+pushButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+pushButton.BorderSizePixel = 1
+pushButton.BorderColor3 = Color3.fromRGB(100, 100, 100)
 
 local showRepoButton = Instance.new("TextButton", frame)
 showRepoButton.Size = UDim2.new(1, 0, 0, 30)
-showRepoButton.Position = UDim2.new(0, 0, 0, 35)
+showRepoButton.LayoutOrder = 2
 showRepoButton.Text = "Show Repo"
-showRepoButton.BackgroundColor3 = Color3.fromRGB(50, 50, 150)
+showRepoButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+showRepoButton.BorderSizePixel = 1
+showRepoButton.BorderColor3 = Color3.fromRGB(100, 100, 100)
 
 local copyTreeButton = Instance.new("TextButton", frame)
 copyTreeButton.Size = UDim2.new(1, 0, 0, 30)
-copyTreeButton.Position = UDim2.new(0, 0, 0, 70)
+copyTreeButton.LayoutOrder = 3
 copyTreeButton.Text = "Copy Tree"
-copyTreeButton.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
+copyTreeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+copyTreeButton.BorderSizePixel = 1
+copyTreeButton.BorderColor3 = Color3.fromRGB(100, 100, 100)
+
+-- Function to setup button colors and hover effect
+local function setupButton(button, normalColor)
+	button.BackgroundColor3 = normalColor
+	local hoverColor = Color3.new(
+		math.min(normalColor.R + 0.08, 1),
+		math.min(normalColor.G + 0.08, 1),
+		math.min(normalColor.B + 0.08, 1)
+	)
+	button.MouseEnter:Connect(function()
+		button.BackgroundColor3 = hoverColor
+	end)
+	button.MouseLeave:Connect(function()
+		button.BackgroundColor3 = normalColor
+	end)
+end
+
+-- Apply to buttons
+setupButton(pushButton, Color3.fromRGB(60, 120, 60))
+setupButton(showRepoButton, Color3.fromRGB(60, 60, 120))
+setupButton(copyTreeButton, Color3.fromRGB(120, 60, 60))
 
 -- Repo Viewer GUI
 local repoViewerInfo = DockWidgetPluginGuiInfo.new(Enum.InitialDockState.Float, true, true, 400, 600, 300, 400)
@@ -275,7 +308,7 @@ repoViewerWidget.Enabled = false
 
 local repoViewerFrame = Instance.new("Frame", repoViewerWidget)
 repoViewerFrame.Size = UDim2.new(1, 0, 1, 0)
-repoViewerFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40) -- Dark grey background
+repoViewerFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 repoViewerFrame.BackgroundTransparency = 0
 
 -- Lua Code Viewer GUI
@@ -295,8 +328,36 @@ codeScrollingFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 codeScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
 codeScrollingFrame.ScrollBarThickness = 10
 
-local codeLayout = Instance.new("UIListLayout", codeScrollingFrame)
-codeLayout.Padding = UDim.new(0, 0)
+local contentFrame = Instance.new("Frame", codeScrollingFrame)
+contentFrame.Size = UDim2.new(1, 0, 0, 0) -- Height will be set dynamically
+contentFrame.BackgroundTransparency = 1
+
+local codeLabel = Instance.new("TextLabel", contentFrame)
+codeLabel.Size = UDim2.new(1, 0, 1, 0)
+codeLabel.BackgroundTransparency = 1
+codeLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+codeLabel.Font = Enum.Font.Code
+codeLabel.TextSize = 14
+codeLabel.TextXAlignment = Enum.TextXAlignment.Left
+codeLabel.TextYAlignment = Enum.TextYAlignment.Top
+codeLabel.TextWrapped = true
+codeLabel.RichText = true
+
+local codeTextBox = Instance.new("TextBox", contentFrame)
+codeTextBox.Size = UDim2.new(1, 0, 1, 0)
+codeTextBox.BackgroundTransparency = 1
+codeTextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+codeTextBox.Font = Enum.Font.Code
+codeTextBox.TextSize = 14
+codeTextBox.TextXAlignment = Enum.TextXAlignment.Left
+codeTextBox.TextYAlignment = Enum.TextYAlignment.Top
+codeTextBox.MultiLine = true
+codeTextBox.TextWrapped = true
+codeTextBox.TextEditable = false
+codeTextBox.ClearTextOnFocus = false
+codeTextBox.Text = ""
+codeTextBox.ZIndex = 2
+codeTextBox.TextTransparency = 1
 
 local codeCloseBtn = Instance.new("TextButton", codeViewerFrame)
 codeCloseBtn.Text = "Close"
@@ -393,53 +454,36 @@ local function tokenizeLua(code)
 	return tokens
 end
 
--- Display code with syntax highlighting
+-- Display code with syntax highlighting and enable text selection with scrolling
 local function displayCode(code, path)
-	for _, child in ipairs(codeScrollingFrame:GetChildren()) do
-		if child:IsA("TextLabel") then
-			child:Destroy()
-		end
-	end
 	local tokens = tokenizeLua(code)
-	local yOffset = 0
-	local maxWidth = 0
-	local lineHeight = 20
+	local richText = ""
+	local plainText = ""
 	for _, token in ipairs(tokens) do
 		local color
 		if token.type == "keyword" then
-			color = Color3.fromRGB(86, 156, 214) -- Blue
+			color = "#569cd6"
 		elseif token.type == "string" then
-			color = Color3.fromRGB(214, 157, 133) -- Orange
+			color = "#d69d85"
 		elseif token.type == "comment" then
-			color = Color3.fromRGB(106, 153, 78) -- Green
+			color = "#6a995e"
 		elseif token.type == "number" then
-			color = Color3.fromRGB(181, 206, 168) -- Light green
+			color = "#b5cea8"
 		elseif token.type == "identifier" or token.type == "operator" then
-			color = Color3.fromRGB(255, 255, 255) -- White
+			color = "#ffffff"
 		else
-			color = Color3.fromRGB(255, 255, 255) -- White for whitespace/unknown
+			color = "#ffffff"
 		end
-		for line in token.value:gmatch("([^\n]*)\n?") do
-			if line ~= "" then
-				local label = Instance.new("TextLabel", codeScrollingFrame)
-				label.Text = line
-				label.TextColor3 = color
-				label.Font = Enum.Font.Code
-				label.TextSize = 14
-				label.Size = UDim2.new(1, 0, 0, lineHeight)
-				label.Position = UDim2.new(0, 10, 0, yOffset)
-				label.BackgroundTransparency = 1
-				label.TextXAlignment = Enum.TextXAlignment.Left
-				label.TextYAlignment = Enum.TextYAlignment.Top
-				local textBounds = label.TextBounds
-				maxWidth = math.max(maxWidth, textBounds.X)
-				yOffset = yOffset + lineHeight
-			else
-				yOffset = yOffset + lineHeight
-			end
-		end
+		local escapedValue = token.value:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;")
+		richText = richText .. string.format('<font color="%s">%s</font>', color, escapedValue)
+		plainText = plainText .. token.value
 	end
-	codeScrollingFrame.CanvasSize = UDim2.new(0, maxWidth + 20, 0, yOffset)
+	codeLabel.Text = richText
+	codeTextBox.Text = plainText
+	wait() -- Wait for TextBounds to update
+	local height = codeLabel.TextBounds.Y
+	contentFrame.Size = UDim2.new(1, 0, 0, height)
+	codeScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, height)
 	codeViewerWidget.Title = "Lua Code: " .. path
 	codeViewerWidget.Enabled = true
 end
@@ -477,30 +521,32 @@ local function buildRepoTreeView(tree)
 	local itemCount = 0
 	local folderStates = {} -- Tracks expanded/collapsed state
 
-	-- Organize tree into a hierarchical structure
-	local function buildNode(path)
-		local parts = split(path, "/")
-		local current = {}
-		for i, part in ipairs(parts) do
-			local subPath = table.concat(parts, "/", 1, i)
-			current[subPath] = current[subPath] or { name = part, children = {}, isFile = false }
-			current = current[subPath].children
-		end
-		return current
-	end
-
+	-- Build the tree structure
 	local root = {}
 	for _, item in ipairs(tree) do
-		local node = buildNode(item.path)
+		local parts = split(item.path, "/")
+		local current = root
+		for i = 1, #parts - 1 do
+			local part = parts[i]
+			if not current[part] then
+				current[part] = { name = part, children = {}, isFile = false }
+			end
+			current = current[part].children
+		end
+		local lastPart = parts[#parts]
 		if item.type == "blob" then
-			node[item.path] = { name = item.path:match("[^/]+$"), path = item.path, isFile = true }
+			current[lastPart] = { name = lastPart, path = item.path, isFile = true }
+		else
+			if not current[lastPart] then
+				current[lastPart] = { name = lastPart, children = {}, isFile = false }
+			end
 		end
 	end
 
 	-- Recursive function to render nodes
 	local function renderNode(node, parentFrame, indentLevel)
 		local indent = indentLevel * 20
-		for path, data in pairs(node) do
+		for name, data in pairs(node) do
 			itemCount = itemCount + 1
 			local frame = Instance.new("Frame", parentFrame)
 			frame.Size = UDim2.new(1, 0, 0, 20)
@@ -545,33 +591,33 @@ local function buildRepoTreeView(tree)
 				local childLayout = Instance.new("UIListLayout", childFrame)
 				childLayout.Padding = UDim.new(0, 2)
 
-				folderStates[path] = folderStates[path] or true -- Default to expanded
-				button.Text = (folderStates[path] and "▼ " or "▶ ") .. "📁 " .. data.name
+				folderStates[name] = folderStates[name] or true -- Default to expanded
+				button.Text = (folderStates[name] and "▼ " or "▶ ") .. "📁 " .. data.name
 
 				button.MouseButton1Click:Connect(function()
-					folderStates[path] = not folderStates[path]
-					button.Text = (folderStates[path] and "▼ " or "▶ ") .. "📁 " .. data.name
-					childFrame.Visible = folderStates[path]
-					local childHeight = folderStates[path] and childLayout.AbsoluteContentSize.Y or 0
+					folderStates[name] = not folderStates[name]
+					button.Text = (folderStates[name] and "▼ " or "▶ ") .. "📁 " .. data.name
+					childFrame.Visible = folderStates[name]
+					local childHeight = folderStates[name] and childLayout.AbsoluteContentSize.Y or 0
 					childFrame.Size = UDim2.new(1, 0, 0, childHeight)
 					local totalHeight = uiListLayout.AbsoluteContentSize.Y
 					scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, totalHeight)
 				end)
 
-				for childPath, childData in pairs(data.children) do
-					renderNode({ [childPath] = childData }, childFrame, indentLevel + 1)
+				for childName, childData in pairs(data.children) do
+					renderNode({ [childName] = childData }, childFrame, indentLevel + 1)
 				end
 
-				local childHeight = folderStates[path] and childLayout.AbsoluteContentSize.Y or 0
+				local childHeight = folderStates[name] and childLayout.AbsoluteContentSize.Y or 0
 				childFrame.Size = UDim2.new(1, 0, 0, childHeight)
-				childFrame.Visible = folderStates[path]
+				childFrame.Visible = folderStates[name]
 			end
 		end
 	end
 
 	-- Render root nodes
-	for path, data in pairs(root) do
-		renderNode({ [path] = data }, scrollingFrame, 0)
+	for name, data in pairs(root) do
+		renderNode({ [name] = data }, scrollingFrame, 0)
 	end
 
 	local totalHeight = uiListLayout.AbsoluteContentSize.Y
