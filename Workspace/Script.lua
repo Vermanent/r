@@ -511,8 +511,6 @@ end)
 -- Save settings
 saveBtn.MouseButton1Click:Connect(function()
 	task.defer(function()
-		-- Debug prints to identify nil elements
-		print("saveBtn - repoBox:", repoBox, "tokenBox:", tokenBox, "includeNonScriptsBox:", includeNonScriptsBox)
 		if not (repoBox and tokenBox and includeNonScriptsBox and statusBar) then
 			if statusBar then statusBar.Text = "❌ UI elements missing" end
 			return
@@ -538,8 +536,6 @@ end)
 -- Clear settings
 clearSettingsBtn.MouseButton1Click:Connect(function()
 	task.defer(function()
-		-- Debug prints to identify nil elements
-		print("clearSettingsBtn - tokenBox:", tokenBox, "repoBox:", repoBox, "includeNonScriptsBox:", includeNonScriptsBox)
 		if not (tokenBox and repoBox and includeNonScriptsBox and statusBar) then
 			if statusBar then statusBar.Text = "❌ UI elements missing" end
 			return
