@@ -92,7 +92,7 @@ local function buildTree(instance, indent, isLast, includeNonScripts)
 end
 
 -- Settings GUI
-local settingsInfo = DockWidgetPluginGuiInfo.new(Enum.InitialDockState.Float, true, true, 300, 180, 200, 150)
+local settingsInfo = DockWidgetPluginGuiInfo.new(Enum.InitialDockState.Float, true, true, 300, 200, 200, 150)
 local settingsWidget = plugin:CreateDockWidgetPluginGui("GitToolsSettings", settingsInfo)
 settingsWidget.Title = "GitTools Settings"
 settingsWidget.Enabled = false
@@ -115,14 +115,6 @@ local includeNonScriptsLabel = Instance.new("TextLabel", settingsFrame)
 includeNonScriptsLabel.Text = "Include Non-Scripts in Tree:"; includeNonScriptsLabel.Position = UDim2.new(0,10,0,70); includeNonScriptsLabel.Size = UDim2.new(0,150,0,20)
 local includeNonScriptsBox = Instance.new("TextBox", settingsFrame)
 includeNonScriptsBox.Text = "false"; includeNonScriptsBox.Position = UDim2.new(0,160,0,70); includeNonScriptsBox.Size = UDim2.new(0,50,0,20)
-
-local configureServicesBtn = Instance.new("TextButton", settingsFrame)
-configureServicesBtn.Text = "Tree Services"
-configureServicesBtn.Position = UDim2.new(0,100,0,100)
-configureServicesBtn.Size = UDim2.new(0,80,0,30)
-configureServicesBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
-configureServicesBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-configureServicesBtn.AutoButtonColor = false
 
 local saveBtn = Instance.new("TextButton", settingsFrame)
 saveBtn.Text = "Save"
@@ -155,6 +147,30 @@ saveBtn.MouseButton1Click:Connect(function()
 	statusBar.Text = "✅ Settings saved"
 	print("[GitTools] Settings saved successfully!")
 end)
+
+local clearSettingsBtn = Instance.new("TextButton", settingsFrame)
+clearSettingsBtn.Text = "Clear Settings"
+clearSettingsBtn.Position = UDim2.new(0,100,0,100)
+clearSettingsBtn.Size = UDim2.new(0,80,0,30)
+clearSettingsBtn.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
+clearSettingsBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+clearSettingsBtn.AutoButtonColor = false
+clearSettingsBtn.MouseButton1Click:Connect(function()
+	plugin:SetSetting("GitToolsSettings", nil)
+	tokenBox.Text = ""
+	repoBox.Text = ""
+	includeNonScriptsBox.Text = "false"
+	statusBar.Text = "✅ Settings cleared"
+	print("[GitTools] Settings cleared!")
+end)
+
+local configureServicesBtn = Instance.new("TextButton", settingsFrame)
+configureServicesBtn.Text = "Tree Services"
+configureServicesBtn.Position = UDim2.new(0,190,0,100)
+configureServicesBtn.Size = UDim2.new(0,80,0,30)
+configureServicesBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+configureServicesBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+configureServicesBtn.AutoButtonColor = false
 
 -- Tree Services Checklist GUI
 local servicesInfo = DockWidgetPluginGuiInfo.new(Enum.InitialDockState.Float, true, true, 300, 400, 200, 300)
@@ -234,6 +250,7 @@ end)
 
 -- Load saved settings
 local settings = plugin:GetSetting("GitToolsSettings") or {}
+print("loadSettings - Loaded settings:", settings)
 if settings.token then tokenBox.Text = settings.token end
 if settings.repo then repoBox.Text = settings.repo end
 if settings.includeNonScripts ~= nil then includeNonScriptsBox.Text = tostring(settings.includeNonScripts) end
@@ -354,21 +371,30 @@ local function buildRepoTreeView(tree)
 	end)
 end
 
+-- Validate settings before operations
+local function validateSettings(s)
+	print("validateSettings - Checking settings:", s)
+	if not s or not s.token or not s.repo or type(s.repo) ~= "string" or s.repo:match("^%s*$") then
+		print("validateSettings - Invalid settings: token or repo missing")
+		return false
+	end
+	local owner, repo = s.repo:match("([^/]+)/([^/]+)")
+	if not owner or not repo then
+		print("validateSettings - Invalid repo format:", s.repo)
+		return false
+	end
+	print("validateSettings - Settings valid:", s)
+	return true, owner, repo
+end
+
 local function pullSelectedRepoItems(selectedItems)
 	local s = plugin:GetSetting("GitToolsSettings") or {}
 	print("pullSelectedRepoItems - Settings:", s)
 	print("pullSelectedRepoItems - s.token:", s.token, "type:", type(s.token))
 	print("pullSelectedRepoItems - s.repo:", s.repo, "type:", type(s.repo))
-	if not s.token or not s.repo or type(s.repo) ~= "string" or s.repo:match("^%s*$") then
+	local isValid, owner, repo = validateSettings(s)
+	if not isValid then
 		statusBar.Text = "❌ Configure token/repo in Settings"
-		print("pullSelectedRepoItems - Invalid settings")
-		settingsWidget.Enabled = true
-		return
-	end
-	local owner, repo = s.repo:match("([^/]+)/([^/]+)")
-	if not owner or not repo then
-		statusBar.Text = "❌ Invalid repo format"
-		print("pullSelectedRepoItems - Invalid repo format:", s.repo)
 		settingsWidget.Enabled = true
 		return
 	end
@@ -414,16 +440,9 @@ local function deleteSelectedRepoItems(selectedItems)
 	print("deleteSelectedRepoItems - Settings:", s)
 	print("deleteSelectedRepoItems - s.token:", s.token, "type:", type(s.token))
 	print("deleteSelectedRepoItems - s.repo:", s.repo, "type:", type(s.repo))
-	if not s.token or not s.repo or type(s.repo) ~= "string" or s.repo:match("^%s*$") then
+	local isValid, owner, repo = validateSettings(s)
+	if not isValid then
 		statusBar.Text = "❌ Configure token/repo in Settings"
-		print("deleteSelectedRepoItems - Invalid settings")
-		settingsWidget.Enabled = true
-		return
-	end
-	local owner, repo = s.repo:match("([^/]+)/([^/]+)")
-	if not owner or not repo then
-		statusBar.Text = "❌ Invalid repo format"
-		print("deleteSelectedRepoItems - Invalid repo format:", s.repo)
 		settingsWidget.Enabled = true
 		return
 	end
@@ -461,16 +480,9 @@ local function fetchRepoStructure()
 	print("fetchRepoStructure - Settings:", s)
 	print("fetchRepoStructure - s.token:", s.token, "type:", type(s.token))
 	print("fetchRepoStructure - s.repo:", s.repo, "type:", type(s.repo))
-	if not s.token or not s.repo or type(s.repo) ~= "string" or s.repo:match("^%s*$") then
+	local isValid, owner, repo = validateSettings(s)
+	if not isValid then
 		statusBar.Text = "❌ Configure token/repo in Settings"
-		print("fetchRepoStructure - Invalid settings")
-		settingsWidget.Enabled = true
-		return
-	end
-	local owner, repo = s.repo:match("([^/]+)/([^/]+)")
-	if not owner or not repo then
-		statusBar.Text = "❌ Invalid repo format (use owner/repo)"
-		print("fetchRepoStructure - Invalid repo format:", s.repo)
 		settingsWidget.Enabled = true
 		return
 	end
@@ -529,9 +541,9 @@ local function pushSelected()
 	print("pushSelected - Settings:", s)
 	print("pushSelected - s.token:", s.token, "type:", type(s.token))
 	print("pushSelected - s.repo:", s.repo, "type:", type(s.repo))
-	if not s.token or not s.repo or type(s.repo) ~= "string" or s.repo:match("^%s*$") then
+	local isValid, owner, repo = validateSettings(s)
+	if not isValid then
 		statusBar.Text = "❌ Configure token/repo in Settings"
-		print("pushSelected - Invalid settings")
 		settingsWidget.Enabled = true
 		return
 	end
@@ -549,13 +561,6 @@ local function pushSelected()
 			if not success then
 				statusBar.Text = "❌ Syntax error in " .. path
 				print("pushSelected - Syntax error:", err)
-				return
-			end
-			local owner, repo = s.repo:match("([^/]+)/([^/]+)")
-			if not owner or not repo then
-				statusBar.Text = "❌ Invalid repo format"
-				print("pushSelected - Invalid repo format:", s.repo)
-				settingsWidget.Enabled = true
 				return
 			end
 			local url = string.format("https://api.github.com/repos/%s/%s/contents/%s", owner, repo, path)
@@ -647,14 +652,14 @@ showRepoButton.MouseButton1Click:Connect(function()
 	print("showRepoButton - Settings:", s)
 	print("showRepoButton - s.token:", s.token, "type:", type(s.token))
 	print("showRepoButton - s.repo:", s.repo, "type:", type(s.repo))
-	if not s.token or not s.repo or type(s.repo) ~= "string" or s.repo:match("^%s*$") then
-		settingsWidget.Enabled = true
+	local isValid = validateSettings(s)
+	if not isValid then
 		statusBar.Text = "❌ Please configure token and repo"
-		print("showRepoButton - Invalid settings")
-	else
-		repoViewerWidget.Enabled = true
-		fetchRepoStructure()
+		settingsWidget.Enabled = true
+		return
 	end
+	repoViewerWidget.Enabled = true
+	fetchRepoStructure()
 end)
 copyTreeButton.MouseButton1Click:Connect(copyTree)
 
